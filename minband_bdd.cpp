@@ -838,7 +838,13 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 		int min_cost_pool = inst->graph->n_vertices;
 		while (node_it != node_pool.end())	{
 
-			if( node_it->second->filterDomains() >= 0 ){
+			//this code is moved out of the if to try and filter only once
+			nodes_layer.push_back(node_it->second);
+			if (min_cost_pool > node_it->second->cost)
+				min_cost_pool = node_it->second->cost;
+
+			/* hopefully we can filter one time fewer
+			 * if( node_it->second->filterDomains() >= 0 ){
 
 				//node_it->second->printState();
 				// move from the pool to current layer list
@@ -850,7 +856,7 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 				cout << "filtered infeasible ";
 				node_it->second->printState(); cout << endl;
 
-			}
+			}*/
 			node_pool.erase(node_it++);
 
 		}
@@ -879,9 +885,11 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 		// ==================================
 
 		Node* branch_node;
+		Domain full_domain;
+		//Domain domain;
+		for (int i=0;i<inst->graph->n_vertices; i++) full_domain.insert(i);
+
 		for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end(); ++it) {
-			Domain full_domain;
-			for (int i=0;i<inst->graph->n_vertices; i++) full_domain.insert(i);
 
 			branch_node = (*it);
 
@@ -891,22 +899,36 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 			//domains should already be filtered once we get  here
 			//remove most recent domain, we are now branching on it
 			set<int> branch_domain = branch_node->state.back();
-			branch_node->state.pop_back();
+			//branch_node->state.pop_back();
+			branch_node->state.back().clear();
+
+
+			//add the next domain so long, now you are branching on second to last domain
+			int branch_dom_number = branch_node->state.size();
+			Domain domain(full_domain);
+			branch_node->state.push_back(domain);
+
 
 
 			for (set<int>::const_iterator v = branch_domain.begin(); v != branch_domain.end(); ++v){
-				Domain domain;
-				domain.insert(*v);
+				//Domain domain(full_domain);
+				//domain.insert(*v);
 
+				//insert, create new, remove to insert next
+				//branch_node->printState(); cout <<"Inserting into " << branch_dom_number << ", " << *v << "\n";
+				branch_node->state[branch_dom_number-1].insert(*v);
+				//branch_node->printState(); cout << "After]\n";
 				node = new Node(branch_node->state,
 						branch_node->cost ,
 						branch_node->exact);
 
-				//the one we are branching on
-				node->state.push_back(domain);
+				//remove
+				branch_node->state[branch_dom_number-1].clear();
+
+				//node->state.push_back(domain);
 
 				//cout << "Filtering..";
-				if (node->filterDomains() >= 0){
+				if ( node->filterDomains2() >= 0 ){
 
 
 					//cout << "feasible. ";
@@ -920,7 +942,7 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 					//cout<< endl;
 
 					//the next variable, will be filtered once we remove from the node_pool
-					node->state.push_back(full_domain);
+					//node->state.push_back(full_domain);
 
 
 					//rather filter domains after we get currentvertex
@@ -1006,18 +1028,23 @@ void MinBandBDD::restrictLayer(int layer, vector<Node*> &nodes_layer) {
 }
 
 int MinBandBDD::calculateCost(Node* _node){
+
+	//TODO different way of calculating cost: only singletons, maybe even only newest vertex
+
 	//cout<< "calculating costs" << endl;
 	//cout << "calculating costs on ";
 	// _node->printState() ;
+
+	//copy the state (for some reason)
 	State _state (_node->state)	;
 
-	// we need to have at lest two domains to calculate a cost.
+	// we need to have at least two domains to calculate a cost.
 	if (vertex_in_layer.size() < 2 || _node->state.size()<2)
 		return 0;
 
 
 	vector<vector<int> > edges_to_check;
-
+	//TODO assume ordering doesnt change, this can be done once globally
 	int vertex_counter = 0;
 	for (vector<int>::iterator i = vertex_in_layer.begin(); i != vertex_in_layer.end()-1 ; ++i){
 		vector<int>  edges_renamed;
@@ -1025,15 +1052,13 @@ int MinBandBDD::calculateCost(Node* _node){
 			if (inst->graph->adj_m[*i][*j]){
 				//the edge we are pushing is the position of j in vertex_in_layer
 				edges_renamed.push_back( j - vertex_in_layer.begin() );
-				//cout << "a(" << *i << *j << ") " ;
 			}
 			else{
-				//cout << "n(" << *i << *j << ") " ;
 			}
 		}
-		//cout << "x";
 		edges_to_check.push_back(edges_renamed);
-	} //cout << " XXX ";
+	}
+
 
 	/*//print
 	for( std::vector<int>::const_iterator j = vertex_in_layer.begin(); j != vertex_in_layer.end(); ++j){
@@ -1050,6 +1075,7 @@ int MinBandBDD::calculateCost(Node* _node){
 	}*/ /*
 	cout << endl;
 	cout << _state.size()<< vertex_in_layer.size()<< edges_to_check.size(); */
+
 	int largest_smallest_cost = 0;
 
 	//for (int i = 0; i < MIN(_state.size(), vertex_in_layer.size())-1; i++){
@@ -1065,6 +1091,8 @@ int MinBandBDD::calculateCost(Node* _node){
 				smallest_cost_edge =1;
 			}
 			else{
+
+				//TODO only upper and lower bounds check distance
 				for (set<int>::const_iterator i_val = _state[i].begin(); i_val != _state[i].end() and !smallEnough; ++i_val){
 					//cout << "x";
 					//test if ew are already had longer on any of the edges, if so this will only get smaller, bail

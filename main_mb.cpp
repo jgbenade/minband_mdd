@@ -233,13 +233,13 @@ void testFilter(){
 
 	cout << "State before  filtering" << endl;
 	node.printState();
-	cout << "State after filtering: " << node.filterDomains() << endl;
+	cout << "State after filtering: " << node.filterDomains2() << endl;
 	node.printState();
 
 	node.state.push_back(d5);
 	cout << "State before  filtering" << endl;
 	node.printState();
-	cout << "State after filtering: "<<		node.filterDomains() << endl;
+	cout << "State after filtering: "<<		node.filterDomains2() << endl;
 	node.printState();
 
 	State state2;
@@ -260,7 +260,7 @@ void testFilter(){
 
 	cout << "State before  filtering" << endl;
 	node2.printState();
-	cout << "State after filtering: " << node2.filterDomains() << endl;
+	cout << "State after filtering: " << node2.filterDomains2() << endl;
 	node2.printState();
 
 

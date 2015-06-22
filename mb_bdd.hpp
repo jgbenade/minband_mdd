@@ -57,12 +57,58 @@ struct Node {
 	{ }
 
 	int filterDomains();
+	int filterDomains2();
 
 	void printState();
 };
 
+inline int Node::filterDomains2(){
+	//cout << "Before "; printState();
+	int feasible = 0;
+	//vector<std::vector<set<int> >::iterator> marked;
+
+	for (std::vector<set<int> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
+		//marked.clear();
+		//marked.push_back(domain);
+
+		//only for small sets, too expensive
+		if ((*domain).size()==1){
+
+			std::vector<set<int> >::iterator domain2 = state.begin();
+
+			//count number of other domains that is a subset of this one, see if you can do an obv Hall set
+			while (domain2!= state.end()){
+				// if this domain is included in the previous one
+				if (domain != domain2){
+					if (std::includes( (*domain2).begin(), (*domain2).end(),
+							(*domain).begin(), (*domain).end() )	){
+
+						(*domain2).erase( *( (*domain).begin() ) );
+
+						if ((*domain2).size() == 0)
+							return -1;
+					}
+				}
+				++domain2;
+			}
+		}
+
+		//printState();
+
+	}
+	//cout << "After "; printState();
+
+
+	/*for (std::vector<set<int> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
+		if ((*domain).size() == 0)
+			return -1;
+	}*/
+	return feasible;
+}
 
 inline int Node::filterDomains(){
+	//cout << "Before "; printState();
+
 	int feasible = 0;
 	vector<std::vector<set<int> >::iterator> marked;
 
