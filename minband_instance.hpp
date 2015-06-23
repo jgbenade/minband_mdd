@@ -223,8 +223,8 @@ inline int Graph::calculate_Degree_Bound(){
 	for (int v =0; v < n_vertices; v++){
 		largest_degree = std::max((int)adj_list[v].size(), largest_degree);
 	}
-	degree_bound =  (int)std::ceil(largest_degree/2);
-	return (int)std::ceil(largest_degree/2);
+	degree_bound =  (int)std::ceil(1.*largest_degree/2);
+	return (int)std::ceil(1.*largest_degree/2);
 }
 
 inline int Graph::calculate_Caprara_Bound(){
@@ -250,7 +250,7 @@ inline int Graph::calculate_Caprara_Bound(){
 
 	caprara_bound = current_bound;
 	//cout<< "Caprara bound= "<< current_bound<< endl;
-	return current_bound;
+	return caprara_bound;
 }
 
 inline int Graph::calculate_HalfDensity_Bound(){
@@ -285,9 +285,9 @@ inline int Graph::calculate_HalfDensity_Bound(){
 		current_bound = std::max(current_bound, internal_max);
 	}
 
-	caprara_bound = current_bound;
+	half_density_bound = (int)std::ceil(current_bound);
 	//cout<< "Half-density bound= "<< current_bound<< endl;
-	return (int)std::ceil(current_bound);
+	return half_density_bound;
 }
 
 inline vector<vector<int> > Graph::make_layered_graph(int v_){

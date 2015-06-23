@@ -222,6 +222,8 @@ private:
 
     bool variable_width;  // if BDD maximum width is variable
 
+    vector<vector<int> > edges_to_check;         //given the ordering, the mapped corresponding edges.
+
 	// Auxiliary parameters
 	CompareNodesCost bn_comparator;
 

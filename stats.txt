@@ -1,0 +1,151 @@
+testgraph1.5	1	0	4	100	0.025
+testgraph1.5	1	0	4	100	0.026
+testgraph1.5	1	0	4	100	0.027
+testgraph1.5	1	0	4	100	0.035
+testgraph1.5	1	2	4	50	0.027
+testgraph1.5	1	2	4	50	0.034
+testgraph1.5	1	2	4	50	0.029
+testgraph1.5	6	4	4	0	0.048
+testgraph1.5	6	4	4	0	0.041
+testgraph1.5	2	2	2	0	0.052
+testgraph1.5	2	2	2	0	0.047
+testgraph1.5	2	2	2	0	0.056
+testgraph1.5	2	2	2	0	0.042
+testgraph1.5	2	2	2	0	0.05
+testgraph1.5	2	2	2	0	0.053
+testgraph1.5	2	2	2	0	0.046
+testgraph1.5	2	2	2	0	0.052
+testgraph1.5	2	2	2	0	0.048
+testgraph1.5	4	2	2	0	0.081
+testgraph1.5	4	2	2	0	0.072
+testgraph1.5	4	2	2	0	0.04
+testgraph1.5	15	4	4	0	0.103
+testgraph1.5	15	4	4	0	0.12
+testgraph1.5	15	4	4	0	0.109
+testgraph1.5	15	4	4	0	0.133
+testgraph1.5	15	4	4	0	0.098
+testgraph1.5	15	4	4	0	0.104
+testgraph1.5	15	4	4	0	0.108
+testgraph1.5	15	4	4	0	0.093
+testgraph1.5	15	4	4	0	0.116
+testgraph1.5	15	4	4	0	0.116
+testgraph1.5	15	4	4	0	0.097
+testgraph1.5	15	4	4	0	0.261
+testgraph1.5	15	4	4	0	0.009
+testgraph1.5	15	4	4	0	0.01
+testgraph1.5	15	4	4	0	0.007
+testgraph1.5	15	4	4	0	0.008
+testgraph1.5	15	4	4	0	0.009
+testgraph1.5	15	4	4	0	0.006
+testgraph1.5	15	4	4	0	0.007
+testgraph1.5	15	4	4	0	0.009
+testgraph1.5	15	4	4	0	0.009
+testgraph1.5	54	4	4	0	0.02
+testgraph1.5	54	4	4	0	0.016
+testgraph1.5	54	4	4	0	0.023
+testgraph1.5	80	4	4	0	0.034
+testgraph1.5	54	4	4	0	0.023
+testgraph1.5	54	4	4	0	0.019
+testgraph1.5	15	2	2	0	0.02
+testgraph1.5	20	3	3	0	0.018
+testgraph1.5	20	3	3	0	0.019
+testgraph1.5	7	2	2	0	0.015
+testgraph1.5	6	2	2	0	0.01
+testgraph1.5	15	2	2	0	0.015
+testgraph1.5	1	2	2	0	0.008
+testgraph1.5	8	2	2	0	0.013
+testgraph1.5	6	2	2	0	0.01
+testgraph1.5	5	2	2	0	0.01
+testgraph1.5	5	2	2	0	0.088
+testgraph1.5	5	2	2	0	0.069
+testgraph1.5	5	2	2	0	0.04
+testgraph1.5	5	2	2	0	0.035
+testgraph1.5	5	2	2	0	0.035
+testgraph1.5	1	2	2	0	0.021
+testgraph1.5	1	3	3	0	0.012
+testgraph1.5	1	2	2	0	0.017
+testgraph1.5	6	2	2	0	0.037
+myciel4.col	51	3	18	83.3333	4369.99
+testgraph1.5	1	2	2	0	0.016
+testgraph1.5	10	2	2	0	0.055
+testgraph1.5	10	2	2	0	0.011
+testgraph1.5	6	2	2	0	0.074
+testgraph1.5	10	2	2	0	0.18
+testgraph1.5	10	2	2	0	0.151
+testgraph1.5	10	2	2	0	0.133
+testgraph1.5	10	2	2	0	0.16
+testgraph1.5	10	2	2	0	0.139
+myciel4.col	1	1	20	95	4.258
+myciel4.col	1	1	20	95	4.243
+myciel4.col	1	1	20	95	4.212
+myciel4.col	1	6	11	1	20	95	4.165
+myciel4.col	1	10	6	11	1	20	95	4.196
+small_testset/myciel4.d	1	10	6	11	1	20	95	4.352
+myciel4.col	1	10	6	11	1	20	95	4.399
+myciel4.col	1	10	6	11	1	23	95.6522	4.43
+myciel4.col	1	10	6	11	1	23	95.6522	4.212
+myciel4.col	1	10	6	11	1	23	95.6522	4.384
+myciel4.col	1	10	6	11	1	23	95.6522	4.758
+myciel4.col	1	10	6	11	1	23	95.6522	4.212
+myciel4.col	1	10	6	11	1	23	95.6522	4.227
+myciel4.col	1	10	6	11	1	23	95.6522	4.196
+myciel4.col	1	10	6	11	1	23	95.6522	4.305
+myciel4.col	1	10	6	11	1	23	95.6522	4.134
+myciel4.col	1	10	6	11	1	23	95.6522	4.119
+myciel4.col	1	10	6	11	1	23	95.6522	4.274
+myciel4.col	1	10	6	11	1	23	95.6522	4.211
+myciel4.col	1	100	6	11	2	23	91.3043	28.781
+testgraph1.5	1	10	2	2	2	2	0	0.015
+testgraph1.5	1	5	2	2	2	5	60	0
+myciel4.col	1	10	6	11	0	0	nan	0.015
+myciel4.col	1	10	6	11	0	0	nan	0.03
+myciel4.col	1	10	6	11	1	23	95.6522	5.007
+testgraph1.5	1	5	2	2	2	5	60	0
+testgraph1.5	1	5	2	2	2	5	60	0.031
+testgraph1.5	1	7	2	2	2	3	33.3333	0.015
+testgraph1.5	1	10	2	2	2	2	0	0
+testgraph1.5	1	10	2	2	2	2	0	0.015
+myciel4.col	1	10	6	11	1	23	95.6522	4.383
+myciel4.col	1	10	6	11	1	23	95.6522	4.243
+myciel4.col	1	10	6	11	1	23	95.6522	4.29
+myciel4.col	1	10	6	11	1	23	95.6522	4.118
+myciel4.col	1	10	6	11	1	23	95.6522	4.134
+myciel4.col	1	10	6	11	1	20	95	4.18
+myciel4.col	1	10	6	11	1	20	95	4.461
+myciel4.col	1	10	6	11	1	20	95	4.258
+myciel4.col	1	10	6	11	1	23	95.6522	4.118
+myciel4.col	1	10	6	11	1	23	95.6522	4.289
+myciel4.col	1	10	6	11	1	23	95.6522	4.305
+myciel4.col	1	10	6	11	1	23	95.6522	4.617
+myciel4.col	1	10	6	11	1	23	95.6522	4.18
+myciel4.col	1	10	6	11	1	23	95.6522	4.118
+myciel4.col	1	10	6	11	1	23	95.6522	4.118
+myciel4.col	1	10	6	11	1	23	95.6522	4.134
+myciel4.col	1	10	6	11	1	23	95.6522	4.165
+myciel4.col	1	10	6	11	1	23	95.6522	4.165
+myciel4.col	1	10	6	11	1	23	95.6522	4.29
+myciel4.col	1	10	6	11	1	23	95.6522	4.196
+myciel4.col	1	1000	6	11	3	23	86.9565	282.19
+myciel4.col	1	10	6	11	11	23	52.1739	6.146
+myciel4.col	1	10	6	11	6	23	73.913	2.137
+myciel4.col	1	10	6	11	6	23	73.913	1.966
+myciel4.col	1	10	6	11	6	23	73.913	1.576
+myciel4.col	1	10	6	11	6	23	73.913	2.011
+myciel4.col	1	10	6	11	5	23	78.2609	1.81
+myciel4.col	1	1000	6	11	5	23	78.2609	172.131
+myciel4.col	1	1000	6	11	11	23	52.1739	146.953
+small_testset/bcspwr01.d	1	100	4	4	4	39	89.7436	113.912
+myciel4.col	1	10	6	11	11	23	52.1739	1.419
+myciel4.col	1	10	6	11	11	20	45	1.528
+myciel4.col	1	10	6	11	11	20	45	1.497
+myciel4.col	1	10	6	11	11	20	45	2.465
+myciel4.col	1	10	6	11	11	20	45	2.403
+myciel4.col	1	10	6	11	11	20	45	2.37
+myciel4.col	1	10	6	11	11	20	45	2.433
+myciel4.col	1	10	6	11	11	20	45	2.402
+myciel4.col	1	10	6	11	11	20	45	1.31
+myciel4.col	1	10	6	11	11	20	45	4.056
+myciel4.col	1	10	6	11	11	20	45	1.263
+myciel4.col	1	10	6	11	11	20	45	1.263
+myciel4.col	1	10	6	11	11	20	45	1.279
+myciel4.col	1	10	6	11	11	20	45	1.263
