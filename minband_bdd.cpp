@@ -405,7 +405,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 
 				//node->cost = MAX(node->cost, calculateCost_bounds(node));
 				//node->cost = MAX(node->cost, calculateCost_caprara(node));
-				node->cost = MAX(node->cost, calculateCost_caprara(node));
+				node->cost = MAX(node->cost, calculateCost_bounds(node));
 				//cout << "New node "  ;
 				//node->printState();
 				//cout<< endl;
@@ -1078,7 +1078,7 @@ int MinBandBDD::calculateCost_bounds(Node* _node){
 	 */
 
 	//copy the state (for some reason)
-	State _state (_node->state)	;
+	//State _state (_node->state)	;
 
 
 	//what happens to vertex_in_layer between iterations? reset?
@@ -1131,15 +1131,15 @@ int MinBandBDD::calculateCost_bounds(Node* _node){
 			int smallest_cost_edge = inst->graph->n_vertices+1;
 
 			//handle case where both domains are everything
-			if (_state[i].size() == inst->graph->n_vertices or _state[*j].size() == inst->graph->n_vertices){
+			if (_node->state[i].size() == inst->graph->n_vertices or _node->state[*j].size() == inst->graph->n_vertices){
 				smallest_cost_edge = 1;
 			}
 			else{
-				int lb1 = *(_state[i].begin());
-				int ub1 = *(--_state[i].end());
+				int lb1 = *(_node->state[i].begin());
+				int ub1 = *(--_node->state[i].end());
 
-				int lb2 = *(_state[*j].begin());
-				int ub2 = *(--_state[*j].end());
+				int lb2 = *(_node->state[*j].begin());
+				int ub2 = *(--_node->state[*j].end());
 
 				//contained, dist 1
 				if (lb1 <= lb2 and ub2 <= ub1) smallest_cost_edge = 1;

@@ -488,3 +488,7 @@ small_testset/caprara10.d	1	1000	2	3	4	4	0	0.452
 small_testset/caprara10.d	1	1000	2	3	3	5	40	2.713
 small_testset/caprara10.d	1	1000	2	3	3	5	40	0.499
 small_testset/caprara10.d	1	1000	2	3	3	5	40	0.343
+small_testset/caprara10.d	1	1000	2	3	4	4	0	0.421
+small_testset/caprara10.d	1	10000	2	3	4	4	0	0.748
+small_testset/caprara10.d	1	10000	2	3	4	4	0	0.561
+small_testset/caprara10.d	1	10000	2	3	4	4	0	0.655
