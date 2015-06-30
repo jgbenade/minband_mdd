@@ -302,6 +302,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		assert( current_vertex != -1 );
 
 		nodes_layer.clear();
+		nodes_layer.reserve(node_pool.size());
 		//cout << "Nodes_pool size " << node_pool.size();
 
 		node_it = node_pool.begin();
@@ -348,8 +349,8 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		cout << " - pool: " << node_pool.size();
 		cout << " - before merge: " << nodes_layer.size();
 		cout << " - total: " << node_pool.size() + nodes_layer.size();
-		cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;
-		cout << endl;
+
+		//cout << endl;
 
 
 		// ==================================
@@ -359,7 +360,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		if( maxWidth != INF && (int)nodes_layer.size() > maxWidth ) {
 			mergeLayer(layer, nodes_layer);
 		}
-
+		cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost << endl;
 
 		// ==================================
 		// 3. Branching
@@ -417,23 +418,17 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 				//rather filter domains after we get currentvertex
 
 				if (node->cost < upper_bound) {
-
 					// Equivalence test: check if node is in list
 					existing_node_it = node_pool.find( &(node->state) );
 					if (existing_node_it != node_pool.end()) {
-
 						cout <<" Matched, merging";
-
 						// node already exists in the pool: update node match
 						merge(node, existing_node_it->second);
 						node = existing_node_it->second;
 
 					} else {
-
 						//cout << "inserting" << endl;
 						node_pool[ &(node->state)] = node;
-
-
 						// update eligibility list
 						/*if (var_ordering->order_type == MinState) {
 							for (vector<int>::iterator v = active_vertices.begin(); v != active_vertices.end(); ++v) {
@@ -443,6 +438,8 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 							}
 						}*/
 					}
+
+
 				} else {
 					delete node;
 				}
@@ -495,8 +492,6 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 	isExact = terminal->exact;
 
 	delete terminal;*/
-
-
 
 
 	int min_cost_pool = inst->graph->n_vertices;

@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <map>
+#include <unordered_map>
 #include <vector>
 #include <set>
 #include <algorithm>
@@ -194,7 +195,9 @@ struct BDD {
 //
 // BDD Node pool type
 //
-typedef map<State*, Node*, StateLessThan> BDDNodePool;
+//typedef map<State*, Node*, StateLessThan> BDDNodePool;
+typedef unordered_map<State*, Node*> BDDNodePool;
+
 
 //
 // Marker of the end of a state (for iteration purposes)
