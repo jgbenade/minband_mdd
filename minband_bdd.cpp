@@ -197,7 +197,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 	//vertex_in_layer.clear();
 	if (var_ordering->order_type == MinState) {
 		for (vector<int>::iterator v = active_vertices.begin(); v != active_vertices.end(); ++v) {
-			in_node->state_counter[*v] = 1;
+			in_state_counter[*v] = 1;
 		}
 	} else if ( var_ordering->order_type == RootOrder ) {
 		ComparatorAuxIntVectorDescending comp(root_ordering);
@@ -224,44 +224,44 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 
 	//imake sure we have the right number of things in vertex_in_layer
 	// we usually have one extra set in the state
-	while (vertex_in_layer.size() >= active_node->state.size()and vertex_in_layer.size() >0)
+	while (vertex_in_layer.size() >= active_state.size()and vertex_in_layer.size() >0)
 	{
 		vertex_in_layer.pop_back();
 	}
 
-	//if this is the very first node active_node->state is empty so we have to put something in there before we copy it.
-	if (active_node->state.size() < 1 ){
+	//if this is the very first node active_state is empty so we have to put something in there before we copy it.
+	if (active_state.size() < 1 ){
 		Domain full_domain;
 		for (int i=0;i <= (int)(std::ceil(inst->graph->n_vertices/2)); i++) full_domain.insert(i);
-		active_node->state.push_back(full_domain);
+		active_state.push_back(full_domain);
 	}
 
-	//copy active_node->state to root_node->state
-	State root_node->state;
-	for( std::vector<set<int> >::const_iterator i = active_node->state.begin(); i != active_node->state.end(); ++i){
+	//copy active_state to root_state
+	State root_state;
+	for( std::vector<set<int> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
 		Domain domain;
 		for( std::set<int>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
 			//std::cout << *j ;
 			domain.insert(*j);
 		}
-		root_node->state.push_back(domain);
+		root_state.push_back(domain);
 		//cout << ",";
 	}
 
 	//print the initial state just to check
-	/*for( std::vector<set<int> >::const_iterator i = active_node->state.begin(); i != active_node->state.end(); ++i){
+	/*for( std::vector<set<int> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
 		for( std::set<int>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
 			std::cout << *j ;
 		}
 		cout << ",";
 	}*/
 
-	//cout<< "creating initial root : activestate/vil size " << active_node->state.size() << vertex_in_layer.size()<<endl;
+	//cout<< "creating initial root : activestate/vil size " << active_state.size() << vertex_in_layer.size()<<endl;
 
 	// create initial BDD node
-	Node* initial_node = new Node(root_node->state, 0, true);  initial_node->printState();
+	Node* initial_node = new Node(root_state, 0, true);  initial_node->printState();
 	node_pool.clear();
-	node_pool[ &(root_node->state) ] = initial_node;
+	node_pool[ &(root_state) ] = initial_node;
 	root_node = initial_node;
 
 	BDDNodePool::iterator node_it, existing_node_it;
@@ -269,7 +269,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 
 	// relaxation control variables
 	int current_vertex;
-	int layer = root_node->state.size() -1 ;
+	int layer = root_state.size() -1 ;
 	// so for the first vertex we have a 0, last layer n-1, corresponds to indices in vertex in layer
 	const int num_active_vertices = inst->graph->n_vertices - layer;
 	//here active vertices are vertices that dont have domains yet
@@ -319,7 +319,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 				/*if (var_ordering->order_type == MinState) {
 					for (vector<int>::iterator v = active_vertices.begin(); v != active_vertices.end(); ++v) {
 						if ((*node_it->first)[*v]) {
-							in_node->state_counter[*v]--;
+							in_state_counter[*v]--;
 						}
 					}
 				}*/
@@ -603,23 +603,23 @@ void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 	// Merge nodes into the central node state (or simply central state)
 	// no need to consider cost, central node already has min cost in ordered list
 
-	State* central_node->state = &( central_node->state );
+	State* central_state = &( central_node->state );
 	for (vector<Node*>::iterator node = nodes_layer.begin() + maxWidth; node != nodes_layer.end(); ++node) {
 
 		//(*node)->printState();
 		// update state
 
 		//check if two the nodes you want to merge are on the same layer
-		if ((*node)->state.size() != (*central_node->state).size()){
+		if ((*node)->state.size() != (*central_state).size()){
 			cout<< "Invalid Merge operation attempted" << endl;
-			assert((*node)->state.size() != (*central_node->state).size());
+			assert((*node)->state.size() != (*central_state).size());
 		}
 
 		//Take union of domains
-		for( int i = 0; i < (*central_node->state).size(); i++){
+		for( int i = 0; i < (*central_state).size(); i++){
 			//no need to attempt a merge if ew already have everything
-			if ((*central_node->state)[i].size() != inst->graph->n_vertices)
-				(*central_node->state)[i].insert((*node)->state[i].begin(), (*node)->state[i].end());
+			if ((*central_state)[i].size() != inst->graph->n_vertices)
+				(*central_state)[i].insert((*node)->state[i].begin(), (*node)->state[i].end());
 		}
 
 		// if any of the remaining nodes to merge is exact, we have to add it to the branch pool as well.
@@ -648,7 +648,7 @@ void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 		node = nodes_layer[i];
 
 		// check if this state already exists in layer nodes
-		if( node->state == (*central_node->state) ) {
+		if( node->state == (*central_state) ) {
 
 			// notice that, if node exists, we do not need to update
 			// the costs because the vector is already ordered
@@ -680,17 +680,17 @@ int MinBandBDD::choose_next_vertex_min_size_next_layer() {
 	int sel_index = 0;
 	for (size_t i = 1; i < active_vertices.size(); ++i) {
 
-		if (in_node->state_counter[active_vertices[i]] != 0 && in_node->state_counter[active_vertices[i]] < in_node->state_counter[active_vertices[sel_index]]) {
+		if (in_state_counter[active_vertices[i]] != 0 && in_state_counter[active_vertices[i]] < in_state_counter[active_vertices[sel_index]]) {
 			sel_index = i;
 
-		} else if (in_node->state_counter[active_vertices[i]] != 0 && (in_node->state_counter[active_vertices[i]] == in_node->state_counter[active_vertices[sel_index]]) && active_vertices[i] < active_vertices[sel_index]) {
+		} else if (in_state_counter[active_vertices[i]] != 0 && (in_state_counter[active_vertices[i]] == in_state_counter[active_vertices[sel_index]]) && active_vertices[i] < active_vertices[sel_index]) {
 			// lexicographic tie breaking
 			sel_index = i;
 		}
 	}
 
 	// TODO: check this case!!!
-	if (in_node->state_counter[active_vertices[sel_index]] == 0) {
+	if (in_state_counter[active_vertices[sel_index]] == 0) {
 
 //		cout << "[BDD " << x10_placeID << "] POOL SIZE = " << node_pool.size() << endl;
 //		cout << "State = { ";
@@ -701,14 +701,14 @@ int MinBandBDD::choose_next_vertex_min_size_next_layer() {
 //
 //		cout << "Active vertices = { ";
 //		for (vector<int>::iterator it = active_vertices.begin(); it != active_vertices.end(); ++it) {
-//			cout << *it << " (counter = " << in_node->state_counter[*it] << ")";
+//			cout << *it << " (counter = " << in_state_counter[*it] << ")";
 //		}
 //		cout << "}" << endl;
 //
 //		exit(1);
 	}
 
-	//assert( in_node->state_counter[active_vertices[sel_index]] > 0 );
+	//assert( in_state_counter[active_vertices[sel_index]] > 0 );
 
 	/*int sel_vertex = active_vertices[sel_index];
 	active_vertices[sel_index] = active_vertices.back();
@@ -744,7 +744,7 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 
 	if (var_ordering->order_type == MinState) {
 		for (vector<int>::iterator v = active_vertices.begin(); v != active_vertices.end(); ++v) {
-			in_node->state_counter[*v] = 1;
+			in_state_counter[*v] = 1;
 		}
 	} else if ( var_ordering->order_type == RootOrder ) {
 		ComparatorAuxIntVectorDescending comp(root_ordering);
@@ -770,32 +770,32 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 	// create root node state
 
 	//pop vertex in layres, will get again in the loop
-	while (vertex_in_layer.size() >= active_node->state.size() and vertex_in_layer.size() >0)
+	while (vertex_in_layer.size() >= active_state.size() and vertex_in_layer.size() >0)
 		{
 			vertex_in_layer.pop_back();
 		}
 
-	//if this is the very first node active_node->state is empty so we have to put something in there before we copy it.
-	if (active_node->state.size() < 1 ){
+	//if this is the very first node active_state is empty so we have to put something in there before we copy it.
+	if (active_state.size() < 1 ){
 		Domain full_domain;
 		for (int i=0; i<= (int)(std::ceil(inst->graph->n_vertices/2)); i++) full_domain.insert(i);
-		active_node->state.push_back(full_domain);
+		active_state.push_back(full_domain);
 	}
 
-	//copy active_node->state to root_node->state
-	State root_node->state;
-	for( std::vector<set<int> >::const_iterator i = active_node->state.begin(); i != active_node->state.end(); ++i){
+	//copy active_state to root_state
+	State root_state;
+	for( std::vector<set<int> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
 		Domain domain;
 		for( std::set<int>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
 			//std::cout << *j ;
 			domain.insert(*j);
 		}
-		root_node->state.push_back(domain);
+		root_state.push_back(domain);
 		//cout << ",";
 	}
 
 	/*//print the initial state just to check
-	for( std::vector<set<int> >::const_iterator i = active_node->state.begin(); i != active_node->state.end(); ++i){
+	for( std::vector<set<int> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
 		for( std::set<int>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
 			std::cout << *j ;
 		}
@@ -803,9 +803,9 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 	}*/
 
 	// create initial BDD node
-	Node* initial_node = new Node(root_node->state, 0, true); initial_node->printState();
+	Node* initial_node = new Node(root_state, 0, true); initial_node->printState();
 	node_pool.clear();
-	node_pool[ &(root_node->state) ] = initial_node;
+	node_pool[ &(root_state) ] = initial_node;
 	root_node = initial_node;
 
 	BDDNodePool::iterator node_it, existing_node_it;
@@ -813,7 +813,7 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 
 	// relaxation control variables
 	int current_vertex;
-	int layer = root_node->state.size() -1 ;
+	int layer = root_state.size() -1 ;
 	// so for the first vertex we have a 0, last layer n-1, corresponds to indices in vertex in layer
 	const int num_active_vertices = inst->graph->n_vertices - layer;
 	//here active vertices are vertices that dont have domains yet
@@ -1282,7 +1282,6 @@ int MinBandBDD::calculateCost_mu2(Node* _node){
 	/* Only use the largest nd smalles t element in every domain to calc
 	 * costs
 	 */
-
 
 	// we need to have at least two domains to calculate a cost.
 	if (vertex_in_layer.size() < 2 || _node->state.size()<2)
