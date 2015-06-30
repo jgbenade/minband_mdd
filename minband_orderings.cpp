@@ -84,6 +84,7 @@ void SpanningTreeOrdering::construct_ordering() {
 		previous_size = (int)v_in_layer.size();
 	}
 
+
 	cout<< endl<< "ordering ";
 	for (vector<int>::iterator it = v_in_layer.begin(); it!= v_in_layer.end(); ++it){
 		cout << *it;

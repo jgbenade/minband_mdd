@@ -500,8 +500,8 @@ int main(int argc, char* argv[]) {
 	statfile << argv[1];
 	statfile << "\t" << nodes_explored;
 	statfile << "\t" << root_max_width;
-	statfile << "\t" << minband_bdd.inst->graph->calculate_HalfDensity_Bound();
-	statfile << "\t" << minband_bdd.inst->graph->calculate_Caprara_Bound();
+	statfile << "\t" << minband_bdd.inst->calculate_HalfDensity_Bound();
+	statfile << "\t" << minband_bdd.inst->calculate_Caprara_Bound();
 	statfile << "\t" << global_lb;
 	statfile << "\t" << global_ub;
 	statfile << "\t" << ((double)(global_ub - global_lb) / (double)global_ub)*100.0;

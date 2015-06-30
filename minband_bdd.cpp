@@ -98,11 +98,11 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	//var_ordering = new LexOrdering(inst);
 	var_ordering = new SpanningTreeOrdering(inst);
 
-	cout << " ### Degree bound\t" << inst->graph->calculate_Degree_Bound() << endl;
-	cout << " ### Half-density bound\t " << inst->graph->calculate_HalfDensity_Bound() << endl;
-	cout << " ### Caprara bound   \t " << inst->graph->calculate_Caprara_Bound() << endl;
+	cout << " ### Degree bound\t" << inst->calculate_Degree_Bound() << endl;
+	cout << " ### Half-density bound\t " << inst->calculate_HalfDensity_Bound() << endl;
+	cout << " ### Caprara bound   \t " << inst->calculate_Caprara_Bound() << endl;
 
-    best_lb = std::max(inst->graph->caprara_bound, inst->graph->half_density_bound);
+    best_lb = std::max(inst->caprara_bound, inst->half_density_bound);
     cout << "best_lb = " << best_lb << "\n";
 
     // generate relaxation
@@ -116,9 +116,11 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	upper_bound = inst->graph->n_vertices;
 
 	lower_bound = -1;
-	int ub1 = generateRestriction(inst->graph->n_vertices);
-	upper_bound = ub1;
-	int lb1 = generateRelaxation(best_lb);
+	//int ub1 = generateRestriction(inst->graph->n_vertices);
+	//upper_bound = ub1;
+	int ub1 = inst->CuthillMckee();
+	upper_bound =ub1;
+	int lb1 = generateRelaxation(-1);
 	best_lb = MAX(lb1, best_lb);
 	//int ub1 = generateRestriction(inst->graph->n_vertices);
 
@@ -342,11 +344,12 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		lower_bound = MAX(lower_bound, min_cost_pool);
 
 		//PRINT LAYER
-		/*cout << "Layer " << layer << " - current vertex: " << current_vertex;
-		cout << " - pool size: " << node_pool.size();
+		cout << "Layer " << layer << " - vertex: " << current_vertex;
+		cout << " - pool: " << node_pool.size();
 		cout << " - before merge: " << nodes_layer.size();
 		cout << " - total: " << node_pool.size() + nodes_layer.size();
-		cout << endl;*/
+		cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;
+		cout << endl;
 
 
 		// ==================================
@@ -399,7 +402,10 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 				//TODO filter, check if feasible domains,check costs and update
 
 				//cout << "c1"<< calculateCost(node);
-				node->cost = MAX(node->cost, calculateCost(node));
+
+				//node->cost = MAX(node->cost, calculateCost_bounds(node));
+				//node->cost = MAX(node->cost, calculateCost_caprara(node));
+				node->cost = MAX(node->cost, calculateCost_caprara(node));
 				//cout << "New node "  ;
 				//node->printState();
 				//cout<< endl;
@@ -425,7 +431,6 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 					} else {
 
 						//cout << "inserting" << endl;
-
 						node_pool[ &(node->state)] = node;
 
 
@@ -506,17 +511,26 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 
 			if (node_it->second->exact){
 				hasExact = true;
+				//for the inexact cost calculations we need to double check
+				node_it->second->cost = MAX(node_it->second->cost, calculateCost_bounds(node_it->second));
+
 				if (node_it->second->cost < upper_bound	){
 					upper_bound = node_it->second->cost;
 					//best_ub_state = State(node_it->second->state);
 				}
 			}
 
-			if (min_cost_pool > node_it->second->cost)
+			//cout << "n" << node_it->second->cost;
+
+			min_cost_pool = MIN(min_cost_pool, node_it->second->cost);
+			//cout << "n" << node_it->second->cost<< "m"<<min_cost_pool;
+			/*if (min_cost_pool > node_it->second->cost){
 				min_cost_pool = node_it->second->cost;
+			}*/
 
 			node_it++;
 	}
+	//cout <<endl<< lower_bound << " : " << min_cost_pool <<endl;
 	lower_bound = MAX(lower_bound, min_cost_pool);
 
 	//if one of the equally lowest cost nodes are exact then
@@ -940,7 +954,7 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 					//TODO filter, check if feasible domains,check costs and update
 
 					//cout << "c1"<< calculateCost(node);
-					node->cost = MAX(node->cost, calculateCost(node));
+					node->cost = MAX(node->cost, calculateCost_caprara(node));
 					//cout << "New node "  ;
 					//node->printState();
 					//cout<< endl;
@@ -1033,6 +1047,535 @@ void MinBandBDD::restrictLayer(int layer, vector<Node*> &nodes_layer) {
 	nodes_layer.resize(maxWidth);
 }
 
+int MinBandBDD::calculateCost_caprara(Node* _node){
+	vector<bool> possible_start(inst->graph->n_vertices, true);
+
+	for(vector<Domain>::const_iterator state_it = _node->state.begin(); state_it!= _node->state.end(); ++ state_it){
+		if ((*state_it).find(1) == (*state_it).end()	){
+			possible_start[vertex_in_layer[state_it - _node->state.begin()]] = false;
+		}
+	}
+
+	int caprara_min = inst->graph->n_vertices;
+
+	//for every vertex that can still be in position 1
+	for (int i = 0; i<inst->graph->n_vertices; i++){
+		if (possible_start[i])
+			caprara_min = std::min(caprara_min, inst->caprara_list[i]);
+	}
+
+	/*if (caprara_min > inst->caprara_bound){
+		cout << caprara_min << " : " ; _node->printState();
+	}*/
+	return caprara_min;
+
+
+}
+
+int MinBandBDD::calculateCost_bounds(Node* _node){
+	/* Only use the largest nd smalles t element in every domain to calc
+	 * costs
+	 */
+
+	//copy the state (for some reason)
+	State _state (_node->state)	;
+
+
+	//what happens to vertex_in_layer between iterations? reset?
+	while (edges_to_check.size() > vertex_in_layer.size())
+		edges_to_check.pop_back();
+
+
+	//see if we are on a new level, map the ne wedges if so
+	//this assumes that all nodes have the same ordering
+	//cout << "Starting edges to check update " << vertex_in_layer.size() << " " << edges_to_check.size() << endl;
+	/*if (vertex_in_layer.size() > edges_to_check.size()){
+
+		vector<int>  edges_renamed;
+		std::vector<int>::iterator from = vertex_in_layer.end()-1;
+
+		for (vector<int>::iterator to = vertex_in_layer.begin(); to != from; ++to){
+			if (inst->graph->adj_m[*to][*from] ){
+				edges_renamed.push_back( to - vertex_in_layer.begin() );
+				//cout << "addindg edge (" << edges_to_check.size()<< "," << to-vertex_in_layer.begin() <<") ";
+			}
+		}
+		edges_to_check.push_back(edges_renamed);
+	}*/
+
+	//this may get called at any stage, add all edges we missed
+	while(vertex_in_layer.size() > edges_to_check.size()){
+		vector<int>  edges_renamed;
+		std::vector<int>::iterator from = vertex_in_layer.begin()+edges_to_check.size();
+
+		for (vector<int>::iterator to = vertex_in_layer.begin(); to != from; ++to){
+			if (inst->graph->adj_m[*to][*from] ){
+				edges_renamed.push_back( to - vertex_in_layer.begin() );
+				//cout << "addindg edge (" << edges_to_check.size()<< "," << to-vertex_in_layer.begin() <<") ";
+			}
+		}
+		edges_to_check.push_back(edges_renamed);
+	}
+
+	// we need to have at least two domains to calculate a cost.
+	if (vertex_in_layer.size() < 2 || _node->state.size()<2)
+		return 0;
+
+	int largest_smallest_cost = 0;
+
+	//for (int i = 0; i < MIN(_state.size(), vertex_in_layer.size())-1; i++){
+	for (int i = 0; i < edges_to_check.size(); i++){
+		//cout << "domain1= "<<i<< " - " << edges_to_check[i].size() << " :" << (edges_to_check[i].begin() -edges_to_check[i].end()) ;
+		for (vector<int>::const_iterator j = edges_to_check[i].begin(); j != edges_to_check[i].end(); ++j){
+			//cout << "enter"<< i<< *j << ";"<<_state[i].size()<< _state[*j].size() << endl;
+			int smallest_cost_edge = inst->graph->n_vertices+1;
+
+			//handle case where both domains are everything
+			if (_state[i].size() == inst->graph->n_vertices or _state[*j].size() == inst->graph->n_vertices){
+				smallest_cost_edge = 1;
+			}
+			else{
+				int lb1 = *(_state[i].begin());
+				int ub1 = *(--_state[i].end());
+
+				int lb2 = *(_state[*j].begin());
+				int ub2 = *(--_state[*j].end());
+
+				//contained, dist 1
+				if (lb1 <= lb2 and ub2 <= ub1) smallest_cost_edge = 1;
+				if (lb2 <= lb1 and ub1 <= ub2) smallest_cost_edge = 1;
+				//overlapping, dist 1
+				if (lb1 <= lb2 and ub1 <= ub2 and ub1 >= lb2) smallest_cost_edge = 1;
+				if (lb2 <= lb1 and ub2 <= ub1 and ub2 >= lb1) smallest_cost_edge = 1;
+				//disjoint, calc dist
+				if (ub1 <= lb2) smallest_cost_edge = std::abs(ub1 - lb2);
+				if (ub2 <= lb1) smallest_cost_edge = std::abs(ub2 - lb1);
+
+			}
+
+			//cout << smallest_cost_edge << " ";
+			if (smallest_cost_edge > largest_smallest_cost
+					and smallest_cost_edge <= inst->graph->n_vertices){
+				largest_smallest_cost = smallest_cost_edge;
+			}
+			//cout << "exit" <<endl;
+		}
+		//cout << endl;
+	}
+
+	//cout << "Done "<< largest_smallest_cost << endl;
+	return largest_smallest_cost;
+
+}
+
+int MinBandBDD::calculateCost_bounds_fast(Node* _node){
+	/* Only use the largest nd smalles t element in every domain to calc
+	 * costs
+	 */
+
+	//copy the state (for some reason)
+	State _state (_node->state)	;
+
+
+	//what happens to vertex_in_layer between iterations? reset?
+	while (edges_to_check.size() > vertex_in_layer.size())
+		edges_to_check.pop_back();
+
+
+	//see if we are on a new level, map the ne wedges if so
+	//this assumes that all nodes have the same ordering
+	//cout << "Starting edges to check update " << vertex_in_layer.size() << " " << edges_to_check.size() << endl;
+	while(vertex_in_layer.size() > edges_to_check.size()){
+			vector<int>  edges_renamed;
+			std::vector<int>::iterator from = vertex_in_layer.begin()+edges_to_check.size();
+
+			for (vector<int>::iterator to = vertex_in_layer.begin(); to != from; ++to){
+				if (inst->graph->adj_m[*to][*from] ){
+					edges_renamed.push_back( to - vertex_in_layer.begin() );
+					//cout << "addindg edge (" << edges_to_check.size()<< "," << to-vertex_in_layer.begin() <<") ";
+				}
+			}
+			edges_to_check.push_back(edges_renamed);
+		}
+
+
+	// we need to have at least two domains to calculate a cost.
+	if (vertex_in_layer.size() < 2 || _node->state.size()<2)
+		return 0;
+
+	int largest_smallest_cost = 0;
+
+	if (_state.size()% 10 == 0 ){
+		//for (int i = 0; i < MIN(_state.size(), vertex_in_layer.size())-1; i++){
+		for (int i = 0; i < edges_to_check.size(); i++){
+			//cout << "domain1= "<<i<< " - " << edges_to_check[i].size() << " :" << (edges_to_check[i].begin() -edges_to_check[i].end()) ;
+			for (vector<int>::const_iterator j = edges_to_check[i].begin(); j != edges_to_check[i].end(); ++j){
+				//cout << "enter"<< i<< *j << ";"<<_state[i].size()<< _state[*j].size() << endl;
+				int smallest_cost_edge = inst->graph->n_vertices+1;
+
+				//handle case where both domains are everything
+				if (_state[i].size() == inst->graph->n_vertices or _state[*j].size() == inst->graph->n_vertices){
+					smallest_cost_edge = 1;
+				}
+				else{
+					int lb1 = *(_state[i].begin());
+					int ub1 = *(--_state[i].end());
+
+					int lb2 = *(_state[*j].begin());
+					int ub2 = *(--_state[*j].end());
+
+					//contained, dist 1
+					if (lb1 <= lb2 and ub2 <= ub1) smallest_cost_edge = 1;
+					if (lb2 <= lb1 and ub1 <= ub2) smallest_cost_edge = 1;
+					//overlapping, dist 1
+					if (lb1 <= lb2 and ub1 <= ub2 and ub1 >= lb2) smallest_cost_edge = 1;
+					if (lb2 <= lb1 and ub2 <= ub1 and ub2 >= lb1) smallest_cost_edge = 1;
+					//disjoint, calc dist
+					if (ub1 <= lb2) smallest_cost_edge = std::abs(ub1 - lb2);
+					if (ub2 <= lb1) smallest_cost_edge = std::abs(ub2 - lb1);
+
+				}
+
+				//cout << smallest_cost_edge << " ";
+				if (smallest_cost_edge > largest_smallest_cost
+						and smallest_cost_edge <= inst->graph->n_vertices){
+					largest_smallest_cost = smallest_cost_edge;
+				}
+				//cout << "exit" <<endl;
+			}
+			//cout << endl;
+		}
+	}
+	else{
+
+		int i = edges_to_check.size()-1;
+		for (vector<int>::const_iterator j = edges_to_check[i].begin(); j != edges_to_check[i].end(); ++j){
+			//cout << "enter"<< i<< *j << ";"<<_state[i].size()<< _state[*j].size() << endl;
+			int smallest_cost_edge = inst->graph->n_vertices+1;
+
+			//handle case where both domains are everything
+			if (_state[i].size() == inst->graph->n_vertices or _state[*j].size() == inst->graph->n_vertices){
+				smallest_cost_edge = 1;
+			}
+			else{
+				int lb1 = *(_state[i].begin());
+				int ub1 = *(--_state[i].end());
+
+				int lb2 = *(_state[*j].begin());
+				int ub2 = *(--_state[*j].end());
+
+				//contained, dist 1
+				if (lb1 <= lb2 and ub2 <= ub1) smallest_cost_edge = 1;
+				if (lb2 <= lb1 and ub1 <= ub2) smallest_cost_edge = 1;
+				//overlapping, dist 1
+				if (lb1 <= lb2 and ub1 <= ub2 and ub1 >= lb2) smallest_cost_edge = 1;
+				if (lb2 <= lb1 and ub2 <= ub1 and ub2 >= lb1) smallest_cost_edge = 1;
+				//disjoint, calc dist
+				if (ub1 <= lb2) smallest_cost_edge = std::abs(ub1 - lb2);
+				if (ub2 <= lb1) smallest_cost_edge = std::abs(ub2 - lb1);
+
+			}
+
+			//cout << smallest_cost_edge << " ";
+			if (smallest_cost_edge > largest_smallest_cost
+					and smallest_cost_edge <= inst->graph->n_vertices){
+				largest_smallest_cost = smallest_cost_edge;
+			}
+			//cout << "exit" <<endl;
+		}
+	}
+
+	//cout << "Done "<< largest_smallest_cost << endl;
+	return largest_smallest_cost;
+
+}
+
+
+int MinBandBDD::calculateCost_mu2(Node* _node){
+	/* Only use the largest nd smalles t element in every domain to calc
+	 * costs
+	 */
+
+	//copy the state (for some reason)
+	State _state (_node->state)	;
+
+	// we need to have at least two domains to calculate a cost.
+	if (vertex_in_layer.size() < 2 || _node->state.size()<2)
+		return 1;
+
+	int largest_guaranteed_cost = 0;
+
+	//for (int i = 0; i < MIN(_state.size(), vertex_in_layer.size())-1; i++){
+	for (int i = 0; i < _state.size() -1; i++){
+		//cout << "domain1= "<<i<< " - " << edges_to_check[i].size() << " :" << (edges_to_check[i].begin() -edges_to_check[i].end()) ;
+		for (int j = i+1; j != _state.size(); ++j){
+
+			//cout << "enter"<< i<< *j << ";"<<_state[i].size()<< _state[*j].size() << endl;
+			int smallest_cost_edge = inst->graph->n_vertices+1;
+
+			//handle case where both domains are everything
+			if (_state[i].size() == inst->graph->n_vertices or _state[j].size() == inst->graph->n_vertices){
+				smallest_cost_edge = 1;
+			}
+			else{
+				int lb1 = *(_state[i].begin());
+				int ub1 = *(--_state[i].end());
+
+				int lb2 = *(_state[j].begin());
+				int ub2 = *(--_state[j].end());
+
+				//contained, dist 1
+				if (lb1 <= lb2 and ub2 <= ub1) smallest_cost_edge = 1;
+				if (lb2 <= lb1 and ub1 <= ub2) smallest_cost_edge = 1;
+				//overlapping, dist 1
+				if (lb1 <= lb2 and ub1 <= ub2 and ub1 >= lb2) smallest_cost_edge = 1;
+				if (lb2 <= lb1 and ub2 <= ub1 and ub2 >= lb1) smallest_cost_edge = 1;
+				//disjoint, calc dist
+				if (ub1 <= lb2) smallest_cost_edge = std::abs(ub1 - lb2);
+				if (ub2 <= lb1) smallest_cost_edge = std::abs(ub2 - lb1);
+
+			}
+
+			largest_guaranteed_cost = MAX(largest_guaranteed_cost,
+								(int)std::ceil(smallest_cost_edge/(1.*inst->graph->dist(vertex_in_layer[i], vertex_in_layer[j]))));
+
+			//cout << smallest_cost_edge << " ";
+
+			//cout << "exit" <<endl;
+		}
+		//cout << endl;
+	}
+
+	//cout << "Done "<< largest_smallest_cost << endl;
+	return largest_guaranteed_cost;
+
+}
+
+int MinBandBDD::calculateCost_mu2_fast(Node* _node){
+	/* Only use the largest nd smalles t element in every domain to calc
+	 * costs
+	 */
+
+	//copy the state (for some reason)
+	State _state (_node->state)	;
+
+	// we need to have at least two domains to calculate a cost.
+	if (vertex_in_layer.size() < 2 || _node->state.size()<2)
+		return 0;
+
+	int largest_guaranteed_cost = 0;
+
+	if (_state.size() % 10 == 0){
+		for (int i = 0; i < _state.size() -1; i++){
+			//cout << "domain1= "<<i<< " - " << edges_to_check[i].size() << " :" << (edges_to_check[i].begin() -edges_to_check[i].end()) ;
+			for (int j = i+1; j != _state.size(); ++j){
+
+				//cout << "enter"<< i<< *j << ";"<<_state[i].size()<< _state[*j].size() << endl;
+				int smallest_cost_edge = inst->graph->n_vertices+1;
+
+				//handle case where both domains are everything
+				if (_state[i].size() == inst->graph->n_vertices or _state[j].size() == inst->graph->n_vertices){
+					smallest_cost_edge = 1;
+				}
+				else{
+					int lb1 = *(_state[i].begin());
+					int ub1 = *(--_state[i].end());
+
+					int lb2 = *(_state[j].begin());
+					int ub2 = *(--_state[j].end());
+
+					//contained, dist 1
+					if (lb1 <= lb2 and ub2 <= ub1) smallest_cost_edge = 1;
+					if (lb2 <= lb1 and ub1 <= ub2) smallest_cost_edge = 1;
+					//overlapping, dist 1
+					if (lb1 <= lb2 and ub1 <= ub2 and ub1 >= lb2) smallest_cost_edge = 1;
+					if (lb2 <= lb1 and ub2 <= ub1 and ub2 >= lb1) smallest_cost_edge = 1;
+					//disjoint, calc dist
+					if (ub1 <= lb2) smallest_cost_edge = std::abs(ub1 - lb2);
+					if (ub2 <= lb1) smallest_cost_edge = std::abs(ub2 - lb1);
+
+				}
+
+				largest_guaranteed_cost = MAX(largest_guaranteed_cost,
+						(int)std::ceil(smallest_cost_edge/(1.*inst->graph->dist(vertex_in_layer[i], vertex_in_layer[j]))));
+
+				//cout << smallest_cost_edge << " ";
+
+				//cout << "exit" <<endl;
+			}
+			//cout << endl;
+		}
+
+	}
+	else{
+
+		int i = _state.size()-1;
+		//cout << "domain1= "<<i<< " - " << edges_to_check[i].size() << " :" << (edges_to_check[i].begin() -edges_to_check[i].end()) ;
+		for (int j = 0; j <i; ++j){
+
+			//cout << "enter"<< i<< *j << ";"<<_state[i].size()<< _state[*j].size() << endl;
+			int smallest_cost_edge = inst->graph->n_vertices+1;
+
+			//handle case where both domains are everything
+			if (_state[i].size() == inst->graph->n_vertices or _state[j].size() == inst->graph->n_vertices){
+				smallest_cost_edge = 1;
+			}
+			else{
+				int lb1 = *(_state[i].begin());
+				int ub1 = *(--_state[i].end());
+
+				int lb2 = *(_state[j].begin());
+				int ub2 = *(--_state[j].end());
+
+				//contained, dist 1
+				if (lb1 <= lb2 and ub2 <= ub1) smallest_cost_edge = 1;
+				if (lb2 <= lb1 and ub1 <= ub2) smallest_cost_edge = 1;
+				//overlapping, dist 1
+				if (lb1 <= lb2 and ub1 <= ub2 and ub1 >= lb2) smallest_cost_edge = 1;
+				if (lb2 <= lb1 and ub2 <= ub1 and ub2 >= lb1) smallest_cost_edge = 1;
+				//disjoint, calc dist
+				if (ub1 <= lb2) smallest_cost_edge = std::abs(ub1 - lb2);
+				if (ub2 <= lb1) smallest_cost_edge = std::abs(ub2 - lb1);
+
+			}
+
+			largest_guaranteed_cost = MAX(largest_guaranteed_cost,
+					(int)std::ceil(smallest_cost_edge/(1.*inst->graph->dist(vertex_in_layer[i], vertex_in_layer[j]))));
+
+			//cout << smallest_cost_edge << " ";
+
+			//cout << "exit" <<endl;
+		}
+		//cout << endl;
+	}	//cout << "Done "<< largest_smallest_cost << endl;
+	return largest_guaranteed_cost;
+
+}
+
+int MinBandBDD::calculateCost_ILP(Node* _node){
+
+	State _state(_node->state);
+
+	int low_phi =  inst->caprara_bound ;
+	int hi_phi = inst->graph->n_vertices ;
+    int phi = (int) low_phi + (hi_phi-low_phi)/2;
+
+	vector<int> layer_containing_vertex(inst->graph->n_vertices, -1);
+
+	vector<int> ordering(inst->graph->n_vertices,-1);
+	vector<int> fixed;
+	for(vector<int>::const_iterator vil_it = vertex_in_layer.begin(); vil_it!= vertex_in_layer.end(); ++vil_it){
+
+		layer_containing_vertex[*vil_it] = vil_it-vertex_in_layer.begin();
+
+		if (_state[vil_it - vertex_in_layer.begin()].size() ==1){
+			ordering[*_state[vil_it - vertex_in_layer.begin()].begin()]  = *vil_it;
+			fixed.push_back(*vil_it);
+		}
+	}
+
+	while (low_phi - hi_phi < 0){
+		vector<vector<int> > data_vertices ;
+
+		//compute all the l_v, f_v
+		for (int i =0;i< inst->graph->n_vertices; i++){
+			vector<int> trip(3,-1);
+			trip[0] = i;
+			trip[1] = inst->graph->n_vertices; //lv
+			trip[2] = -1; //fv
+
+			//calculate lv,fv
+			for(vector<int>::const_iterator fixed_it = fixed.begin(); fixed_it!= fixed.end(); ++fixed_it){
+				int h = inst->graph->dist(i,*fixed_it);
+				//min {h*phi +i }
+				trip[1] = std::min(trip[1], - h*phi + *_state[layer_containing_vertex[*fixed_it]].begin() );
+				trip[2] = std::max(trip[2], h*phi + *_state[layer_containing_vertex[*fixed_it]].begin() );
+			}
+
+			//within bounds
+			trip[1] = std::max(trip[1], 0);
+			trip[2] = std::min(trip[2], inst->graph->n_vertices);
+
+			//if we have a domain for this vertex, update bounds
+			if (layer_containing_vertex[i] >-1){
+				trip[1] = std::max(trip[1], *(_state[layer_containing_vertex[i]].begin() ) );
+				trip[2] = std::min(trip[2], *(--_state[layer_containing_vertex[i]].end() ));
+			}
+			//cout << trip[0] <<"," <<trip[1]<< "," << trip[2]<<endl;
+			data_vertices.push_back(trip);
+		}
+
+		//sort in order of f_v, want to use popback
+		std::sort(data_vertices.begin(), data_vertices.end(), mytriplecompfv());
+
+		//print data
+		/*cout<< phi << endl;
+		for (vector<vector<int> >::const_iterator it = data_vertices.begin(); it != data_vertices.end(); ++it){
+			for(vector<int>::const_iterator itt = (*it).begin()	; itt!= (*it).end(); ++itt){
+				cout << *itt <<",";
+			}
+			cout<<endl;
+		}*/
+		//vector<vector<int> > feasible_vertices;
+		std::priority_queue<vector<int>, vector<vector<int> >,  mytriplecomplv> feasible_vertices;
+
+		int pos=0;
+		bool feasible_flag = true;
+
+		while(pos < inst->graph->n_vertices and feasible_flag){
+
+
+			while(data_vertices.size() >0 and data_vertices.back()[1] <= pos ){
+				feasible_vertices.push(data_vertices.back());
+				data_vertices.pop_back();
+			}
+			if (feasible_vertices.size() == 0){
+				//cout << "size ";
+
+
+				feasible_flag = false;
+			}
+			else{
+
+				vector<int> insert = feasible_vertices.top();
+				feasible_vertices.pop();
+
+				//test last position violated? insert if not
+				if (insert[2] < pos){
+					//cout << "last";
+					//cout << pos << " d "<<insert[0] <<"," <<insert[1]<< "," << insert[2]<<endl;
+					feasible_flag = false;
+				}
+				else
+					ordering[pos] = insert[0];
+			}
+
+			++pos;
+		}
+
+		//cout << phi << "-"<< feasible_flag << "...";
+		//update binary search bounds
+		if (feasible_flag){
+			hi_phi = phi-1;
+			phi = (int) low_phi + (hi_phi-low_phi)/2;
+		}
+		else{
+			low_phi = phi+1;
+			phi = (int) low_phi + (hi_phi-low_phi)/2;
+		}
+
+	}
+
+	//cout << phi << "="; _node->printState();
+
+	return phi;
+
+}
+
+
+
+
+
 int MinBandBDD::calculateCost(Node* _node){
 
 	//TODO different way of calculating cost: only singletons, maybe even only newest vertex
@@ -1045,7 +1588,6 @@ int MinBandBDD::calculateCost(Node* _node){
 	State _state (_node->state)	;
 
 
-
 	//what happens to vertex_in_layer between iterations? reset?
 	while (edges_to_check.size() > vertex_in_layer.size())
 		edges_to_check.pop_back();
@@ -1054,19 +1596,18 @@ int MinBandBDD::calculateCost(Node* _node){
 	//see if we are on a new level, map the ne wedges if so
 	//this assumes that all nodes have the same ordering
 	//cout << "Starting edges to check update " << vertex_in_layer.size() << " " << edges_to_check.size() << endl;
-	if (vertex_in_layer.size() > edges_to_check.size()){
+	while(vertex_in_layer.size() > edges_to_check.size()){
+			vector<int>  edges_renamed;
+			std::vector<int>::iterator from = vertex_in_layer.begin()+edges_to_check.size();
 
-		vector<int>  edges_renamed;
-		std::vector<int>::iterator from = vertex_in_layer.end()-1;
-
-		for (vector<int>::iterator to = vertex_in_layer.begin(); to != from; ++to){
-			if (inst->graph->adj_m[*to][*from] ){
-				edges_renamed.push_back( to - vertex_in_layer.begin() );
-				//cout << "addindg edge (" << edges_to_check.size()<< "," << to-vertex_in_layer.begin() <<") ";
+			for (vector<int>::iterator to = vertex_in_layer.begin(); to != from; ++to){
+				if (inst->graph->adj_m[*to][*from] ){
+					edges_renamed.push_back( to - vertex_in_layer.begin() );
+					//cout << "addindg edge (" << edges_to_check.size()<< "," << to-vertex_in_layer.begin() <<") ";
+				}
 			}
+			edges_to_check.push_back(edges_renamed);
 		}
-		edges_to_check.push_back(edges_renamed);
-	}
 	//cout <<"Finishing edges to check update" << endl;
 
 
@@ -1120,7 +1661,7 @@ int MinBandBDD::calculateCost(Node* _node){
 	if (vertex_in_layer.size() < 2 || _node->state.size()<2)
 		return 0;
 
-	int largest_smallest_cost = lower_bound;
+	int largest_smallest_cost = 0;
 
 	//for (int i = 0; i < MIN(_state.size(), vertex_in_layer.size())-1; i++){
 	for (int i = 0; i < edges_to_check.size(); i++){

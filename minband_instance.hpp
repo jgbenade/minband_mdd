@@ -29,9 +29,9 @@ struct Graph {
 	bool**                      adj_m;              /**< adjacent matrix */
 	vector< vector<int> >       adj_list;           /**< adjacent list */
 
-	int 						degree_bound;       /** max degree /2 **/
-	int							caprara_bound;		/** Bound by Caprara, Salazar-Gonzalez**/
-	int 						half_density_bound; /** 1/2 approx of density bound (Blum et al) **/
+	vector<vector<vector<int> > > vertex_neighbourhood; /** stores the v_n[v][k] are the vertices
+															in the k-th neigbourhood of v**/
+	vector<vector<int> >		distance_matrix	;	/**pairwise distances**/
 
 
 	/** Set two vertices as adjacents */
@@ -67,17 +67,17 @@ struct Graph {
 	/** Print graph */
 	void print();
 
-	int calculate_Degree_Bound();
+	int dist(int i, int j);
 
-	int calculate_Caprara_Bound();
+	void calculate_pairwise_dist()	;
 
-	int calculate_HalfDensity_Bound();
+
 
 	vector<vector<int> > make_layered_graph(int v_);
 };
 
 
-
+using namespace std;
 //
 // Independent set instance structure
 //
@@ -90,7 +90,20 @@ struct MinBandInst {
 	/** Read DIMACS independent set instance */
 	void read_DIMACS(const char* filename);
 
+	int calculate_Degree_Bound();
 
+	int calculate_Caprara_Bound();
+
+	int calculate_HalfDensity_Bound();
+
+	int 						degree_bound;       /** max degree /2 **/
+	int							caprara_bound;		/** Bound by Caprara, Salazar-Gonzalez**/
+	int 						half_density_bound; /** 1/2 approx of density bound (Blum et al) **/
+
+	vector<int>					caprara_list;       /**list stores max \lceil (N_k(v)-1)/k\rceil for every v
+		 	 	 	 	 	 	 	 	 	 	 	 	 	 Used for computing alpha_1^S efficiently**/
+
+	int CuthillMckee();								/** returns cuthillmckee banwidth**/
 };
 
 
@@ -218,20 +231,26 @@ inline void Graph::remove_edge(int i, int j) {
 	}
 }
 
-inline int Graph::calculate_Degree_Bound(){
+
+inline int Graph::dist(int i, int j){
+	return distance_matrix[i][j];
+}
+
+inline int MinBandInst::calculate_Degree_Bound(){
 	int largest_degree = 0;
-	for (int v =0; v < n_vertices; v++){
-		largest_degree = std::max((int)adj_list[v].size(), largest_degree);
+	for (int v =0; v < graph->n_vertices; v++){
+		largest_degree = std::max((int)graph->adj_list[v].size(), largest_degree);
 	}
 	degree_bound =  (int)std::ceil(1.*largest_degree/2);
 	return (int)std::ceil(1.*largest_degree/2);
 }
 
-inline int Graph::calculate_Caprara_Bound(){
-	int current_bound = n_vertices;
+inline int MinBandInst::calculate_Caprara_Bound(){
+	int current_bound = graph->n_vertices;
+	caprara_list.clear();
 
-	for (int v = 0; v<n_vertices; v++){
-		vector<vector<int> > layered_graph = make_layered_graph(v);
+	for (int v = 0; v < graph->n_vertices; v++){
+		vector<vector<int> > layered_graph = graph->vertex_neighbourhood[v];
 		int cumulative_vertices = 0;
 		int internal_max = 0;
 
@@ -243,22 +262,29 @@ inline int Graph::calculate_Caprara_Bound(){
 				internal_max = std::max(internal_max, (int)std::ceil((1.*cumulative_vertices-1)/layer_number));
 			}
 		}
-		//account fo rcase layer 0
+
+		caprara_list.push_back(internal_max);
+
+		//account for case layer 0
 		if (internal_max > 0)
 			current_bound = (int)std::min(current_bound, internal_max);
 	}
+
+	cout << "Caprara_list: " ;
+	for (vector<int>::const_iterator it = caprara_list.begin(); it != caprara_list.end(); ++it)
+		cout << *it << ",";
 
 	caprara_bound = current_bound;
 	//cout<< "Caprara bound= "<< current_bound<< endl;
 	return caprara_bound;
 }
 
-inline int Graph::calculate_HalfDensity_Bound(){
+inline int MinBandInst::calculate_HalfDensity_Bound(){
 	double current_bound = 0;
 
-	for (int v = 0; v<n_vertices; v++){
+	for (int v = 0; v<graph->n_vertices; v++){
 		// cout << "making layered graph at=" <<v <<endl;
-		vector<vector<int> > layered_graph = make_layered_graph(v);
+		vector<vector<int> > layered_graph = graph->vertex_neighbourhood[v];
 		//cout << "done layered at="<<v<<endl;
 
 		/*for(vector<vector<int> >::const_iterator l = layered_graph.begin(); l!= layered_graph.end(); ++l){
@@ -359,8 +385,75 @@ inline void MinBandInst::read_DIMACS(const char *filename) {
 //	}
 
 	cout << "\tdone.\n" << endl;
+
 }
 
+inline int MinBandInst::CuthillMckee(){
+	int best_solution = graph->n_vertices;
 
+	vector<int> ordering;
+	vector<bool> inserted(graph->n_vertices, false);
+
+	//use all vertices as root
+	for (int i = 0; i < graph->n_vertices; i++){
+		ordering.clear();
+		inserted.clear();
+		inserted.resize(graph->n_vertices);
+		//ordering.push_back(i);
+		//inserted[i] = true;
+
+		vector<vector<int> >::const_iterator layer_it =graph->vertex_neighbourhood[i].begin();
+		while(layer_it != graph->vertex_neighbourhood[i].end())	{
+
+			//every vertex in this layer must be inserted
+			for(int j =0; j < (*layer_it).size(); j++){
+
+				int smallest_deg = graph->n_vertices+1;
+				int smallest_vertex = -1;
+
+				//find minimum degree vertex
+				for(vector<int>::const_iterator vertex_it = (*layer_it).begin(); vertex_it!= (*layer_it).end(); vertex_it++){
+
+					if ((graph->degree(*vertex_it) < smallest_deg) && !inserted[(*vertex_it)]){
+						smallest_deg = graph->degree(*vertex_it);
+						smallest_vertex = *vertex_it;
+					}
+
+				}
+
+				//insert minimum degree vertex
+				if (smallest_vertex > -1){
+					ordering.push_back(smallest_vertex);
+					inserted[smallest_vertex] = true;
+				}
+				else cout << "ERROR CuthillMckee" << endl;
+
+			}
+
+			++layer_it;
+		}
+
+		/*//ptint ordering
+		cout << "\nOrdering: ";
+		for (vector<int>::const_iterator it = ordering.begin(); it != ordering.end(); ++it){
+			cout <<*it <<",";
+		} cout << endl;*/
+
+		//ordering has been created
+		// calculate bandwidth of ordering
+		int bandwidth = 0;
+		for (int u = 0; u < graph->n_vertices -1; u++){
+			for (int v = u+1; v < graph->n_vertices; v++){
+				if (graph->adj_m[ordering[u]][ordering[v]]){
+					if(bandwidth < std::abs(u-v))	bandwidth = std::abs(u-v);
+				}
+			}
+		}
+		best_solution = std::min(best_solution, bandwidth);
+
+		//cout<< "CM root "<< i << ": "<<bandwidth;
+	}
+	return best_solution;
+}
 
 #endif /* INSTANCE_HPP_ */

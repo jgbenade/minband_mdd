@@ -114,6 +114,65 @@ void Graph::read_dimacs(const char* filename) {
 	}
 
 	n_edges = count_edges;
+
+	for (int i=0; i<n_vertices; i++){
+		vertex_neighbourhood.push_back(make_layered_graph(i));
+	}
+
+	calculate_pairwise_dist();
+}
+
+void Graph::calculate_pairwise_dist(){
+	/* dist[][] will be the output matrix that will finally have the shortest
+	      distances between every pair of vertices */
+	int dist[n_vertices][n_vertices], i, j, k;
+
+	/* Initialize the solution matrix same as input graph matrix. Or
+	       we can say the initial values of shortest distances are based
+	       on shortest paths considering no intermediate vertex. */
+	for (i = 0; i < n_vertices; i++)
+		for (j = 0; j < n_vertices; j++){
+			if (adj_m[i][j]>0 or i==j)
+				dist[i][j] = adj_m[i][j];
+			else
+				dist[i][j] = n_vertices*n_vertices;
+		}
+
+	/* Add all vertices one by one to the set of intermediate vertices.
+	      ---> Before start of a iteration, we have shortest distances between all
+	      pairs of vertices such that the shortest distances consider only the
+	      vertices in set {0, 1, 2, .. k-1} as intermediate vertices.
+	      ----> After the end of a iteration, vertex no. k is added to the set of
+	      intermediate vertices and the set becomes {0, 1, 2, .. k} */
+	for (k = 0; k < n_vertices; k++)
+	{
+		// Pick all vertices as source one by one
+		for (i = 0; i < n_vertices; i++)
+		{
+			// Pick all vertices as destination for the
+			// above picked source
+			for (j = 0; j < n_vertices; j++)
+			{
+				// If vertex k is on the shortest path from
+				// i to j, then update the value of dist[i][j]
+				if (dist[i][k] + dist[k][j] < dist[i][j])
+					dist[i][j] = dist[i][k] + dist[k][j];
+			}
+		}
+	}
+
+	//copy distnace over
+	for (int i = 0; i < n_vertices; i++)
+	{
+		vector<int> d(n_vertices,0);
+		for (int j = 0; j < n_vertices; j++)
+		{
+			d[j] = dist[i][j];
+		}
+		distance_matrix.push_back(d);
+	}
+
+	return;
 }
 
 

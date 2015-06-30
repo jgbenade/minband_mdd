@@ -113,6 +113,18 @@ struct BranchNodeComparatorDFS {
 	}
 };
 
+//comparotor for ILP relaxation triples
+struct mytriplecompfv {
+	inline bool operator() (const vector<int>& a, const vector<int>& b) {
+		return a[1] > b[1];
+	}
+};
+  	 //want to sort with smallest f_v at back
+struct mytriplecomplv {
+	inline bool operator() (const vector<int>& a, const vector<int>& b) {
+		return a[2] > b[2];
+	}
+};
 
 //
 // Queue of branch nodes ordered by relax ub
@@ -182,6 +194,14 @@ public:
     void addBranchNodesDFS(vector<BranchNode*>& queue);
 
   	int calculateCost(Node* _node);
+  	int calculateCost_bounds(Node* _node);
+  	int calculateCost_bounds_fast(Node* _node);
+  	int calculateCost_caprara(Node* _node);
+  	int calculateCost_mu2(Node* _node);
+  	int calculateCost_mu2_fast(Node* _node);
+  	int calculateCost_ILP(Node* _node);
+
+  	//bool mytriplecomp (const vector<int>& a, const vector<int>& b);
 
 	// Public data members
 	MinBandInst* 			inst;				// independent set instance
@@ -258,6 +278,7 @@ struct CompareOrderDescending {
 		return order[a] > order[b];
 	}
 };
+
 
 
 // ----------------------------------------------------
