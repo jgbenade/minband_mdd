@@ -1,4 +1,4 @@
-file	nodes	width	hdens	capr	low upp	gap	time
+file	nodes	width	hdens	capr	lowb	upb	gap	time
 small_testset/caprara10.d	1	10	2	3	3	5	40	0.031
 small_testset/caprara10.d	1	20	2	3	3	5	40	0.046
 small_testset/caprara10.d	1	50	2	3	3	5	40	0.078
@@ -11,4 +11,3 @@ small_testset/caprara10.d	1	2000	2	3	4	4	0	0.608
 small_testset/caprara10.d	1	3000	2	3	4	4	0	0.561
 small_testset/caprara10.d	1	4000	2	3	4	4	0	0.67
 small_testset/caprara10.d	1	5000	2	3	4	4	0	0.748
-small_testset/caprara10.d	1	10000	2	3	4	4	0	0.764

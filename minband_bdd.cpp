@@ -308,21 +308,23 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		node_it = node_pool.begin();
 		int min_cost_pool = inst->graph->n_vertices;
 		while (node_it != node_pool.end())	{
-
+			nodes_layer.push_back(node_it->second);
+			if (min_cost_pool > node_it->second->cost)
+				min_cost_pool = node_it->second->cost;
 			//if (node_it->second->state[current_vertex]) {
 			//we need to branch on everything
 
-			if( node_it->second->filterDomains() >= 0 ){
+			/*if( node_it->second->filterDomains() >= 0 ){
 				// First case: state contains current vertex, thus we need to branch on it
 				// if var ordering is min-in-state, decrement counter of active vertex list
 				//Todo somthing like this, count tedge or something
-				/*if (var_ordering->order_type == MinState) {
+				if (var_ordering->order_type == MinState) {
 					for (vector<int>::iterator v = active_vertices.begin(); v != active_vertices.end(); ++v) {
 						if ((*node_it->first)[*v]) {
 							in_state_counter[*v]--;
 						}
 					}
-				}*/
+				}
 				//cout << "nodes_layer insert ";
 				//node_it->second->printState();
 				// move from the pool to current layer list
@@ -337,7 +339,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 
 				// Second case: state does not contain vertex; we can maintain it in the pool
 				//++node_it;
-			}
+			}*/
 			node_pool.erase(node_it++);
 
 		}
@@ -367,9 +369,10 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		// ==================================
 
 		Node* branch_node;
+		Domain full_domain;
+		for (int i=0;i<inst->graph->n_vertices; i++) full_domain.insert(i);
+
 		for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end(); ++it) {
-			Domain full_domain;
-			for (int i=0;i<inst->graph->n_vertices; i++) full_domain.insert(i);
 
 			branch_node = (*it);
 
@@ -387,61 +390,60 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 				domain.insert(*v);
 
 				node = new Node(branch_node->state,
-									branch_node->cost ,
-									branch_node->exact);
+						branch_node->cost ,
+						branch_node->exact);
 
 				//the one we are branching on
 				node->state.push_back(domain);
-
+				node->state.push_back(full_domain);
 				//cout << "Filtering..";
 				if (node->filterDomains() < 0){
-					cout << "infeasible";
-					break;
+					//cout << "infeasible";
+					delete node;
 				}
-				//cout << "feasible. ";
-				//cout << "Calculated cost" << calculateCost(node);
-				//TODO filter, check if feasible domains,check costs and update
+				else{
+					//cout << "feasible. ";
+					//cout << "Calculated cost" << calculateCost(node);
+					//TODO filter, check if feasible domains,check costs and update
 
-				//cout << "c1"<< calculateCost(node);
+					//cout << "c1"<< calculateCost(node);
 
-				//node->cost = MAX(node->cost, calculateCost_bounds(node));
-				//node->cost = MAX(node->cost, calculateCost_caprara(node));
-				node->cost = MAX(node->cost, calculateCost_bounds(node));
-				//cout << "New node "  ;
-				//node->printState();
-				//cout<< endl;
+					//node->cost = MAX(node->cost, calculateCost_bounds(node));
+					//node->cost = MAX(node->cost, calculateCost_caprara(node));
+					//cout << "b"<<endl;
+					node->cost = MAX(node->cost, calculateCost_bounds(node));
+					//cout << "a"<<endl  ;
+					//node->printState();
+					//cout<< endl;
 
-				//the next variable, will be filtered once we remove from the node_pool
-				node->state.push_back(full_domain);
+					//the next variable, will be filtered once we remove from the node_pool
 
+					//rather filter domains after we get currentvertex
 
-				//rather filter domains after we get currentvertex
+					if (node->cost < upper_bound) {
+						// Equivalence test: check if node is in list
+						existing_node_it = node_pool.find( &(node->state) );
+						if (existing_node_it != node_pool.end()) {
+							cout <<" Matched, merging";
+							// node already exists in the pool: update node match
+							merge(node, existing_node_it->second);
+							node = existing_node_it->second;
 
-				if (node->cost < upper_bound) {
-					// Equivalence test: check if node is in list
-					existing_node_it = node_pool.find( &(node->state) );
-					if (existing_node_it != node_pool.end()) {
-						cout <<" Matched, merging";
-						// node already exists in the pool: update node match
-						merge(node, existing_node_it->second);
-						node = existing_node_it->second;
-
-					} else {
-						//cout << "inserting" << endl;
-						node_pool[ &(node->state)] = node;
-						// update eligibility list
-						/*if (var_ordering->order_type == MinState) {
+						} else {
+							//cout << "inserting" << endl;
+							node_pool[ &(node->state)] = node;
+							// update eligibility list
+							/*if (var_ordering->order_type == MinState) {
 							for (vector<int>::iterator v = active_vertices.begin(); v != active_vertices.end(); ++v) {
 								if ((node->state)[*v]) {
 									in_node->state_counter[*v]++;
 								}
 							}
 						}*/
+						}
+					} else { // cost > upperbounde
+						delete node;
 					}
-
-
-				} else {
-					delete node;
 				}
 
 			}
@@ -498,8 +500,10 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 	int min_exact_cost = inst->graph->n_vertices;
 	//cout<< node_pool.size() << " nodes in node_pool after run"<< endl;
 
+	//cout << node_pool.size();
 	node_it = node_pool.begin();
 	bool hasExact = false;
+
 	while (node_it != node_pool.end())	{
 
 			//node_it->second->printState();
@@ -508,7 +512,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 				hasExact = true;
 				//for the inexact cost calculations we need to double check
 				node_it->second->cost = MAX(node_it->second->cost, calculateCost_bounds(node_it->second));
-
+				//cout << "a" << node_it->second->cost << calculateCost_bounds(node_it->second);
 				if (node_it->second->cost < upper_bound	){
 					upper_bound = node_it->second->cost;
 					//best_ub_node->state = State(node_it->second->state);
@@ -578,6 +582,9 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 	//cout << "Merging layer "<< endl;
 	sort(nodes_layer.begin(), nodes_layer.end(), CompareNodesCost());
+	/*for (vector<Node*>::const_iterator node_it =  nodes_layer.begin(); node_it != nodes_layer.end() ; ++node_it){
+		cout << (*node_it)->cost ;
+	} cout << endl;*/
 
 	// All nodes will be merged to the one with index "width-1", which will
 	// be denoted here by central node
@@ -1045,7 +1052,7 @@ void MinBandBDD::restrictLayer(int layer, vector<Node*> &nodes_layer) {
 int MinBandBDD::calculateCost_caprara(Node* _node){
 	vector<bool> possible_start(inst->graph->n_vertices, true);
 
-	for(vector<Domain>::const_iterator state_it = _node->state.begin(); state_it!= _node->state.end(); ++ state_it){
+	for(vector<Domain>::const_iterator state_it = _node->state.begin(); state_it!= _node->state.end()-1; ++ state_it){
 		if ((*state_it).find(1) == (*state_it).end()	){
 			possible_start[vertex_in_layer[state_it - _node->state.begin()]] = false;
 		}
@@ -1279,8 +1286,9 @@ int MinBandBDD::calculateCost_bounds_fast(Node* _node){
 
 
 int MinBandBDD::calculateCost_mu2(Node* _node){
-	/* Only use the largest nd smalles t element in every domain to calc
-	 * costs
+	/* We assume we have a dummy domain that we dont care about,
+	 * the domain for the next layer has already been added but
+	 * there is nothing in vertex_in_layer yet. -2, -1 in for loops.
 	 */
 
 	// we need to have at least two domains to calculate a cost.
@@ -1290,9 +1298,9 @@ int MinBandBDD::calculateCost_mu2(Node* _node){
 	int largest_guaranteed_cost = 0;
 
 	//for (int i = 0; i < MIN(_node->state.size(), vertex_in_layer.size())-1; i++){
-	for (int i = 0; i < _node->state.size() -1; i++){
+	for (int i = 0; i < _node->state.size() -2; i++){
 		//cout << "domain1= "<<i<< " - " << edges_to_check[i].size() << " :" << (edges_to_check[i].begin() -edges_to_check[i].end()) ;
-		for (int j = i+1; j != _node->state.size(); ++j){
+		for (int j = i+1; j != _node->state.size()-1; ++j){
 
 			//cout << "enter"<< i<< *j << ";"<<_node->state[i].size()<< _node->state[*j].size() << endl;
 			int smallest_cost_edge = inst->graph->n_vertices+1;
@@ -1348,9 +1356,9 @@ int MinBandBDD::calculateCost_mu2_fast(Node* _node){
 	int largest_guaranteed_cost = 0;
 
 	if (_node->state.size() % 10 == 0){
-		for (int i = 0; i < _node->state.size() -1; i++){
+		for (int i = 0; i < _node->state.size() -2; i++){
 			//cout << "domain1= "<<i<< " - " << edges_to_check[i].size() << " :" << (edges_to_check[i].begin() -edges_to_check[i].end()) ;
-			for (int j = i+1; j != _node->state.size(); ++j){
+			for (int j = i+1; j != _node->state.size()-1; ++j){
 
 				//cout << "enter"<< i<< *j << ";"<<_node->state[i].size()<< _node->state[*j].size() << endl;
 				int smallest_cost_edge = inst->graph->n_vertices+1;
@@ -1390,8 +1398,8 @@ int MinBandBDD::calculateCost_mu2_fast(Node* _node){
 
 	}
 	else{
-
-		int i = _node->state.size()-1;
+		// vil is more general than state.size (do we hav the next domain already or not?)
+		int i = vertex_in_layer.size() - 1;
 		//cout << "domain1= "<<i<< " - " << edges_to_check[i].size() << " :" << (edges_to_check[i].begin() -edges_to_check[i].end()) ;
 		for (int j = 0; j <i; ++j){
 
@@ -1512,8 +1520,6 @@ int MinBandBDD::calculateCost_ILP(Node* _node){
 			}
 			if (feasible_vertices.size() == 0){
 				//cout << "size ";
-
-
 				feasible_flag = false;
 			}
 			else{
@@ -1654,7 +1660,6 @@ int MinBandBDD::calculateCost(Node* _node){
 			}
 			else{
 
-				//TODO only upper and lower bounds check distance
 				for (set<int>::const_iterator i_val = _node->state[i].begin(); i_val != _node->state[i].end() and !smallEnough; ++i_val){
 					//cout << "x";
 					//test if ew are already had longer on any of the edges, if so this will only get smaller, bail

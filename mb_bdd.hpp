@@ -53,9 +53,12 @@ struct Node {
 	: state(_state), cost(_cost), exact(false), layer(-1)
 	{ }
 
-	Node(State &_state, double _cost, bool _exact)
+	/*Node(State &_state, double _cost, bool _exact)
 	: state(_state), cost(_cost), exact(_exact),  layer(-1)
-	{ }
+	{ state.reserve(24);}*/
+	Node(State &_state, double _cost, bool _exact)
+		: state(_state), cost(_cost), exact(_exact),  layer(-1)
+		{ }
 
 	int filterDomains();
 	int filterDomains2();
@@ -86,7 +89,7 @@ inline int Node::filterDomains2(){
 
 						(*domain2).erase( *( (*domain).begin() ) );
 
-						if ((*domain2).size() == 0)
+						if ((*domain2).size() == 0 and domain2 < state.end()-1)
 							return -1;
 					}
 				}
@@ -165,9 +168,9 @@ inline int Node::filterDomains(){
 		//printState();
 
 	}
-
-	for (std::vector<set<int> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
-		if ((*domain).size() == 0)
+	// if the very last state is empty it means that we are ons the last layer
+	for (std::vector<set<int> >::iterator domain=state.begin(); domain !=state.end()-1; ++domain	){
+		if ((*domain).size() == 0 )
 			return -1;
 	}
 	return feasible;

@@ -193,7 +193,7 @@ public:
 	// Add branching nodes to DFS queue
     void addBranchNodesDFS(vector<BranchNode*>& queue);
 
-  	int calculateCost(Node* _node);
+  	int calculateCost( Node* _node);
   	int calculateCost_bounds(Node* _node);
   	int calculateCost_bounds_fast(Node* _node);
   	int calculateCost_caprara(Node* _node);
