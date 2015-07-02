@@ -116,10 +116,11 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	upper_bound = inst->graph->n_vertices;
 
 	lower_bound = -1;
-	//int ub1 = generateRestriction(inst->graph->n_vertices);
-	//upper_bound = ub1;
 	int ub1 = inst->CuthillMckee();
-	upper_bound =ub1;
+	upper_bound = ub1;
+	//int ub2 = generateRestriction(inst->graph->n_vertices);
+	//upper_bound = ub1;
+	//upper_bound = MIN(upper_bound,ub2);
 	int lb1 = generateRelaxation(-1);
 	best_lb = MAX(lb1, best_lb);
 	//int ub1 = generateRestriction(inst->graph->n_vertices);
@@ -396,8 +397,9 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 				//the one we are branching on
 				node->state.push_back(domain);
 				node->state.push_back(full_domain);
-				//cout << "Filtering..";
-				if (node->filterDomains() < 0){
+
+				if (filterBounds(node) < 0 || node->filterDomains() < 0){
+				//if (  node->filterDomains() < 0){
 					//cout << "infeasible";
 					delete node;
 				}
@@ -455,6 +457,8 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 			//for(vector<int>::cons)
 
 		}
+
+		//delete branch_node;
 
 		// if the number of nodes in the pool is empty, then we do not need to explore this BDD further
 		// since there are no better feasible solutions that can be generated from here
@@ -956,7 +960,7 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 					//TODO filter, check if feasible domains,check costs and update
 
 					//cout << "c1"<< calculateCost(node);
-					node->cost = MAX(node->cost, calculateCost_caprara(node));
+					node->cost = MAX(node->cost, calculateCost_mu2(node));
 					//cout << "New node "  ;
 					//node->printState();
 					//cout<< endl;
@@ -1560,9 +1564,6 @@ int MinBandBDD::calculateCost_ILP(Node* _node){
 }
 
 
-
-
-
 int MinBandBDD::calculateCost(Node* _node){
 
 	//TODO different way of calculating cost: only singletons, maybe even only newest vertex
@@ -1696,3 +1697,67 @@ int MinBandBDD::calculateCost(Node* _node){
 
 }
 
+int MinBandBDD::filterBounds(Node* node){
+int feasible = 0;
+	//vector<std::vector<set<int> >::iterator> marked;
+	//cout<< "a "; node->printState();
+	for (std::vector<set<int> >::iterator domain=node->state.begin(); domain !=node->state.end(); ++domain	){
+		//marked.clear();
+		//marked.push_back(domain);
+
+		//only for small sets, too expensive
+		//cout << (*domain).size();
+		if ((*domain).size()==1){
+
+			std::vector<set<int> >::iterator domain2 = node->state.begin();
+
+			//the last domain does not have a vertexinlayer yet so we leave it
+			while (domain2 != --node->state.end()){
+				// if this domain is included in the previous one
+				if (domain != domain2){
+					std::set<int>::iterator itlow,itup;
+					itlow = (*domain2).lower_bound(*( (*domain).begin() ) -
+							upper_bound * inst->graph->dist(vertex_in_layer[domain - node->state.begin()], vertex_in_layer[domain2 - node->state.begin()]));
+					itup = (*domain2).upper_bound(*( (*domain).begin() ) +
+							upper_bound * inst->graph->dist(vertex_in_layer[domain - node->state.begin()], vertex_in_layer[domain2 - node->state.begin()]));
+
+					/*cout << "( " << *((*domain2).begin()) << " , " << *(--(*domain2).end())
+							 << " ) -> ( " << *itlow << " , " << *itup << " ) "<< endl;*/
+					/*cout << "( " << ((*domain2).begin() - (*domain2).begin() ) << " , " << ((*domain2).end() - (*domain2).begin() )
+								 << " ) -> ( " << (itlow - (*domain2).begin()) << " , " << (itup - (*domain2).begin())  << " ) "<< endl;*/
+
+					(*domain2).erase((*domain2).begin(), itlow);
+					(*domain2).erase(itup, (*domain2).end());
+
+					//cout <<"e " ;node->printState();
+					if ((*domain2).size()  == 0 and domain2 != --node->state.end() ){
+						//cout << "x"; node->printState();
+						return -1;
+					}
+					//cout <<"f ";node->printState();
+
+					/*if (std::includes( (*domain2).begin(), (*domain2).end(),
+							(*domain).begin(), (*domain).end() )	){
+
+						(*domain2).erase( *( (*domain).begin() ) );
+
+						if ((*domain2).size() == 0 and domain2 < state.end()-1)
+							return -1;
+					}*/
+
+				}
+				++domain2;
+			}
+		}
+
+		//printState();
+
+	}
+	//cout << "After "; printState();
+
+	/*for (std::vector<set<int> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
+		if ((*domain).size() == 0)
+			return -1;
+	}*/
+	return feasible;
+}

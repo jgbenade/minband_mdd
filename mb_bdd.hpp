@@ -84,6 +84,9 @@ inline int Node::filterDomains2(){
 			while (domain2!= state.end()){
 				// if this domain is included in the previous one
 				if (domain != domain2){
+					//std::set<int>::iterator itlow,itup;
+					//itlow = (*domain2).lower_bound(*( (*domain).begin() ) - ub* inst->graph->dist()
+
 					if (std::includes( (*domain2).begin(), (*domain2).end(),
 							(*domain).begin(), (*domain).end() )	){
 
@@ -92,6 +95,7 @@ inline int Node::filterDomains2(){
 						if ((*domain2).size() == 0 and domain2 < state.end()-1)
 							return -1;
 					}
+
 				}
 				++domain2;
 			}
@@ -112,7 +116,7 @@ inline int Node::filterDomains2(){
 
 inline int Node::filterDomains(){
 	//cout << "Before "; printState();
-
+	//cout << "F " ; printState();
 	int feasible = 0;
 	vector<std::vector<set<int> >::iterator> marked;
 

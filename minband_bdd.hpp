@@ -201,6 +201,8 @@ public:
   	int calculateCost_mu2_fast(Node* _node);
   	int calculateCost_ILP(Node* _node);
 
+  	int filterBounds(Node* node);
+
   	//bool mytriplecomp (const vector<int>& a, const vector<int>& b);
 
 	// Public data members
