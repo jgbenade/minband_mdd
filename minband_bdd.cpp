@@ -268,6 +268,8 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 	BDDNodePool::iterator node_it, existing_node_it;
 	Node* node;
 
+
+
 	// relaxation control variables
 	int current_vertex;
 	int layer = root_state.size() -1 ;
@@ -369,9 +371,11 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		// 3. Branching
 		// ==================================
 
+
 		Node* branch_node;
 		Domain full_domain;
 		for (int i=0;i<inst->graph->n_vertices; i++) full_domain.insert(i);
+		Domain domain;
 
 		for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end(); ++it) {
 
@@ -382,12 +386,13 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 
 			//domains should already be filtered once we get  here
 			//remove most recent domain, we are now branching on it
+			// definition can be moved outside, seems to be slower??
 			set<int> branch_domain = branch_node->state.back();
 			branch_node->state.pop_back();
 
 
 			for (set<int>::const_iterator v = branch_domain.begin(); v != branch_domain.end(); ++v){
-				Domain domain;
+				domain.clear();
 				domain.insert(*v);
 
 				node = new Node(branch_node->state,
@@ -406,14 +411,13 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 				else{
 					//cout << "feasible. ";
 					//cout << "Calculated cost" << calculateCost(node);
-					//TODO filter, check if feasible domains,check costs and update
 
 					//cout << "c1"<< calculateCost(node);
 
 					//node->cost = MAX(node->cost, calculateCost_bounds(node));
 					//node->cost = MAX(node->cost, calculateCost_caprara(node));
 					//cout << "b"<<endl;
-					node->cost = MAX(node->cost, calculateCost_bounds(node));
+					node->cost = MAX(node->cost, calculateCost(node));
 					//cout << "a"<<endl  ;
 					//node->printState();
 					//cout<< endl;
@@ -615,11 +619,8 @@ void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 	// no need to consider cost, central node already has min cost in ordered list
 
 	State* central_state = &( central_node->state );
-	for (vector<Node*>::iterator node = nodes_layer.begin() + maxWidth; node != nodes_layer.end(); ++node) {
 
-		//(*node)->printState();
-		// update state
-
+	/*for (vector<Node*>::iterator node = nodes_layer.begin() + maxWidth; node != nodes_layer.end(); ++node) {
 		//check if two the nodes you want to merge are on the same layer
 		if ((*node)->state.size() != (*central_state).size()){
 			cout<< "Invalid Merge operation attempted" << endl;
@@ -629,8 +630,18 @@ void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 		//Take union of domains
 		for( int i = 0; i < (*central_state).size(); i++){
 			//no need to attempt a merge if ew already have everything
-			if ((*central_state)[i].size() != inst->graph->n_vertices)
+			if ((*central_state)[i].size() != inst->graph->n_vertices){
+
 				(*central_state)[i].insert((*node)->state[i].begin(), (*node)->state[i].end());
+				set_union((*central_state)[i].begin(), (*central_state)[i].end(),
+						(*node)->state[i].begin(), (*node)->state[i].end(),
+						inserter((*central_state)[i], (*central_state)[i].begin()) );
+
+				auto pos = (*central_state)[i].begin();
+				for (auto it = (*node)->state[i].begin(); it != (*node)->state[i].end(); ++it) {
+				    pos = (*central_state)[i].insert(pos, *it);
+				}
+			}
 		}
 
 		// if any of the remaining nodes to merge is exact, we have to add it to the branch pool as well.
@@ -640,6 +651,40 @@ void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 
 		// delete node
 		delete (*node);
+	}*/
+
+	for( int i = 0; i < (*central_state).size(); i++){
+
+		for (vector<Node*>::iterator node = nodes_layer.begin() + maxWidth; node != nodes_layer.end(); ++node) {
+
+			if ((*central_state)[i].size() != inst->graph->n_vertices){
+				(*central_state)[i].insert((*node)->state[i].begin(), (*node)->state[i].end());
+
+				if (i== (*central_state).size() - 1){
+					// if any of the remaining nodes to merge is exact, we have to add it to the branch pool as well.
+					/*if ((*node)->exact) {
+						addBranchNode((*node));
+					}*/
+					// delete node
+					delete (*node);
+				}
+			}
+			else{
+				if (i == (*central_state).size() - 1){
+					// if any of the remaining nodes to merge is exact, we have to add it to the branch pool as well.
+					/*if ((*node)->exact) {
+						addBranchNode((*node));
+					}*/
+					// delete node
+					delete (*node);
+				}
+
+				//domain already full, go to next
+				node  = --nodes_layer.end();
+			}
+
+		}
+
 	}
 	//cout<< "finished merging"<< endl;
 

@@ -47,6 +47,7 @@ struct Node {
 	//todo
 	//vector<Node>	children;
 	int 			layer;
+	vector<std::vector<set<int> >::iterator> marked; //used for filtering
 
 
 	Node(State &_state, double _cost)
@@ -64,6 +65,7 @@ struct Node {
 	int filterDomains2();
 
 	void printState();
+
 };
 
 inline int Node::filterDomains2(){
@@ -118,7 +120,7 @@ inline int Node::filterDomains(){
 	//cout << "Before "; printState();
 	//cout << "F " ; printState();
 	int feasible = 0;
-	vector<std::vector<set<int> >::iterator> marked;
+	//vector<std::vector<set<int> >::iterator> marked;
 
 	for (std::vector<set<int> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
 		marked.clear();
