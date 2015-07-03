@@ -197,6 +197,7 @@ public:
   	int calculateCost_bounds(Node* _node);
   	int calculateCost_bounds_fast(Node* _node);
   	int calculateCost_caprara(Node* _node);
+  	int calculateCost_mu1(Node* node);
   	int calculateCost_mu2(Node* _node);
   	int calculateCost_mu2_fast(Node* _node);
   	int calculateCost_ILP(Node* _node);

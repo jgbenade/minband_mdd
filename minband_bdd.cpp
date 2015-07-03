@@ -425,7 +425,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 					//node->cost = MAX(node->cost, calculateCost_bounds(node));
 					//node->cost = MAX(node->cost, calculateCost_caprara(node));
 					//cout << "b"<<endl;
-					node->cost = MAX(node->cost, calculateCost_bounds(node));
+					node->cost = MAX(node->cost, calculateCost_mu1  (node));
 					//cout << "a"<<endl  ;
 					//node->printState();
 					//cout<< endl;
@@ -1490,6 +1490,52 @@ int MinBandBDD::calculateCost_mu2_fast(Node* _node){
 
 }
 
+int MinBandBDD::calculateCost_mu1(Node* _node){
+	/* We assume we have a dummy domain that we dont care about,
+	 * the domain for the next layer has already been added but
+	 * there is nothing in vertex_in_layer yet. -2, -1 in for loops.
+	 */
+
+	// we need to have at least two domains to calculate a cost.
+	if (vertex_in_layer.size() < 2 || _node->state.size()<2)
+		return 1;
+
+	int largest_guaranteed_cost = 0;
+
+	//for (int i = 0; i < MIN(_node->state.size(), vertex_in_layer.size())-1; i++){
+	for (int i = 0; i < _node->state.size() -2; i++){
+		//cout << "domain1= "<<i<< " - " << edges_to_check[i].size() << " :" << (edges_to_check[i].begin() -edges_to_check[i].end()) ;
+		for (int j = i+1; j != _node->state.size()-1; ++j){
+
+			//cout << "enter"<< i<< *j << ";"<<_node->state[i].size()<< _node->state[*j].size() << endl;
+			int smallest_cost_edge = inst->graph->n_vertices+1;
+
+			for (set<int>::const_iterator i_val = _node->state[i].begin(); i_val != _node->state[i].end(); ++i_val){
+				for (set<int>::const_iterator j_val = _node->state[j].begin(); j_val != _node->state[j].end() ; ++j_val){
+
+					//todo only need bounds with all of other range
+
+					if ((*i_val) != (*j_val) and (std::abs((*i_val) - (*j_val)) < smallest_cost_edge)){
+						smallest_cost_edge = std::abs((*i_val) - (*j_val));
+					}
+
+				}
+			}
+
+			largest_guaranteed_cost = MAX(largest_guaranteed_cost,
+								(int)std::ceil(smallest_cost_edge/(1.*inst->graph->dist(vertex_in_layer[i], vertex_in_layer[j]))));
+
+			//todo return as soon as bigger than upperbound
+
+			//cout << "exit" <<endl;
+		}
+		//cout << endl;
+	}
+
+	//cout << "Done "<< largest_smallest_cost << endl;
+	return largest_guaranteed_cost;
+
+}
 int MinBandBDD::calculateCost_ILP(Node* _node){
 
 
