@@ -84,13 +84,53 @@ void SpanningTreeOrdering::construct_ordering() {
 		previous_size = (int)v_in_layer.size();
 	}
 
-
 	cout<< endl<< "ordering ";
 	for (vector<int>::iterator it = v_in_layer.begin(); it!= v_in_layer.end(); ++it){
 		cout << *it;
 	}cout<<endl;
 }
 
+void DegreeOrdering::construct_ordering(){
+	v_in_layer.clear();
+
+	vector<int> count(inst->graph->n_vertices,0);
+	vector<bool> inserted(inst->graph->n_vertices, false);
+
+	int vertex = -1;
+	int max_count = -1;
+
+	//get highest degree
+	for (int i = 0; i< inst->graph->n_vertices; i++){
+		if (inst->graph->degree(i)>max_count){
+			max_count = inst->graph->degree(i);
+			vertex = i;
+		}
+	}
+
+	while (v_in_layer.size() < inst->graph->n_vertices){
+		v_in_layer.push_back(vertex);
+			inserted[vertex] = true;
+			//update counts
+			for (vector<int>::iterator neighbour = inst->graph->adj_list[vertex].begin();
+					neighbour != inst->graph->adj_list[vertex].end(); ++neighbour){
+				count[*neighbour]++;
+			}
+			max_count = -1;
+			for (int i = 0; i< inst->graph->n_vertices; i++){
+				int score = 1*inst->graph->degree(i) + 2* count[i];
+				if (score > max_count
+						and !inserted[i] ){
+					max_count = score;
+					vertex = i;
+				}
+			}
+	}
+
+	cout<<  "ordering ";
+	for (vector<int>::iterator it = v_in_layer.begin(); it!= v_in_layer.end(); ++it){
+		cout << *it;
+	}cout<<endl;
+}
 
 
 // minimum degree ordering

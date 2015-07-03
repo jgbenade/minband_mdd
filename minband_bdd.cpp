@@ -96,7 +96,7 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	//maxWidth = (_ddWidth == -1? INF : _ddWidth);
 	// set min-in-state variable ordering
 	//var_ordering = new LexOrdering(inst);
-	var_ordering = new SpanningTreeOrdering(inst);
+	var_ordering = new DegreeOrdering(inst);
 
 	cout << " ### Degree bound\t" << inst->calculate_Degree_Bound() << endl;
 	cout << " ### Half-density bound\t " << inst->calculate_HalfDensity_Bound() << endl;
@@ -209,7 +209,10 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 
 	} else if( var_ordering->order_type == SpanningTree ) {
 		//do nothing
-	} else {
+	} else if( var_ordering->order_type == Degree ) {
+		//do nothing
+	}
+	else {
 		cout << "Order undefined" << endl;
 		exit(0);
 	}
@@ -290,6 +293,9 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		} else if ( var_ordering->order_type == SpanningTree ) {
 			current_vertex = var_ordering->vertex_in_layer(new BDD(), layer);
 			active_vertices.erase(std::remove(active_vertices.begin(), active_vertices.end(), current_vertex), active_vertices.end());
+		}else if ( var_ordering->order_type == Degree ) {
+			current_vertex = var_ordering->vertex_in_layer(new BDD(), layer);
+			active_vertices.erase(std::remove(active_vertices.begin(), active_vertices.end(), current_vertex), active_vertices.end());
 		}else if ( var_ordering->order_type == RootOrder ) {
 			current_vertex = active_vertices.back();
 			active_vertices.pop_back();
@@ -305,12 +311,14 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		assert( current_vertex != -1 );
 
 		nodes_layer.clear();
-		//nodes_layer.reserve(node_pool.size());
+		//nodes_layer.resize(node_pool.size());
 		//cout << "Nodes_pool size " << node_pool.size();
 
 		node_it = node_pool.begin();
 		int min_cost_pool = inst->graph->n_vertices;
+
 		while (node_it != node_pool.end())	{
+			//nodes_layer[node_pool_counter++] = node_it->second;
 			nodes_layer.push_back(node_it->second);
 			if (min_cost_pool > node_it->second->cost)
 				min_cost_pool = node_it->second->cost;
@@ -403,7 +411,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 				node->state.push_back(domain);
 				node->state.push_back(full_domain);
 
-				if (filterBounds(node) < 0 || node->filterDomains() < 0){
+				if (filterBounds(node) < 0 || node->filterDomains2() < 0){
 				//if (  node->filterDomains() < 0){
 					//cout << "infeasible";
 					delete node;
@@ -417,7 +425,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 					//node->cost = MAX(node->cost, calculateCost_bounds(node));
 					//node->cost = MAX(node->cost, calculateCost_caprara(node));
 					//cout << "b"<<endl;
-					node->cost = MAX(node->cost, calculateCost(node));
+					node->cost = MAX(node->cost, calculateCost_bounds(node));
 					//cout << "a"<<endl  ;
 					//node->printState();
 					//cout<< endl;
@@ -678,24 +686,15 @@ void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 					// delete node
 					delete (*node);
 				}
-
 				//domain already full, go to next
 				node  = --nodes_layer.end();
 			}
-
 		}
-
 	}
 	//cout<< "finished merging"<< endl;
 
 	// resize node layer vector
 	nodes_layer.resize(maxWidth);
-
-	/*cout << endl << "begin all nodes after merge"<< endl;
-	for (vector<Node*>::iterator node = nodes_layer.begin() ; node != nodes_layer.end(); ++node) {
-		(*node)->printState();
-	}
-	cout<< "finished allnodes after merge"<< endl;*/
 
 	// Check if there are any other nodes which are equivalent to the central node
 

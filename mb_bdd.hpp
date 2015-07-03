@@ -63,6 +63,7 @@ struct Node {
 
 	int filterDomains();
 	int filterDomains2();
+	int filterDomains3();
 
 	void printState();
 
@@ -114,6 +115,52 @@ inline int Node::filterDomains2(){
 			return -1;
 	}*/
 	return feasible;
+}
+
+inline int Node::filterDomains3(){
+	//last domain is full before filtering, use this to get n_vertices
+	vector<bool> flag(state[state.size()-1].size(), false);
+	set<int> fixed;
+
+	for (int i=0; i<state.size(); i++){
+		if (state[i].size()==1)
+			fixed.insert(*(state[i].begin()) );
+	}
+	int prev_fixed_size;
+	if (fixed.size() > 0){
+		do{
+			prev_fixed_size =fixed.size();
+			for (int i=0; i<state.size(); i++){
+
+				if (state[i].size()==1){
+					if (flag[ *(state[i].begin() ) ]){
+						return -1;
+					}else{
+						flag[ *(state[i].begin() ) ] = true;
+					}
+				}else{
+
+					/*std::set_difference(state[i].begin(), state[i].end(),
+							fixed.begin(), fixed.end(),
+							inserter(state[i],state[i].begin() ) );*/
+					for (set<int>::iterator val   = fixed.begin(); val != fixed.end(); ++ val)
+						state[i].erase(*val);
+
+					if (state[i].size() == 0)
+						return -1;
+					else
+						if (state[i].size() ==1){
+							fixed.insert(*(state[i].begin()) );
+							flag[*(state[i]).begin()] = true;
+						}
+				}
+			}
+
+		}
+		while(prev_fixed_size != fixed.size() /*and counter< 2*/);
+	}
+	return 1;
+
 }
 
 inline int Node::filterDomains(){

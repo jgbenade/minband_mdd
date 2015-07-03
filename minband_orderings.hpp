@@ -31,7 +31,7 @@ using namespace std;
 
 enum OrderType {
   MinState, MaximalPath, CutVertexGen, CutVertex, Fixed,
-  MinDegree, RootOrder, LexOrder, SpanningTree
+  MinDegree, RootOrder, LexOrder, SpanningTree, Degree
 };
 
 // Class representing a general ordering
@@ -95,6 +95,24 @@ struct SpanningTreeOrdering : MB_Ordering {
 
   SpanningTreeOrdering(MinBandInst *_inst) : MB_Ordering(_inst, SpanningTree) {
     sprintf(name, "spanningtree");
+    construct_ordering();
+  }
+
+  int vertex_in_layer(BDD* bdd, int layer) {
+    assert( layer >= 0 && layer < inst->graph->n_vertices);
+    return v_in_layer[layer];
+  }
+
+private:
+  void construct_ordering();
+};
+
+struct DegreeOrdering : MB_Ordering {
+
+  vector<int> v_in_layer;   // vertex at each layer
+
+  DegreeOrdering(MinBandInst *_inst) : MB_Ordering(_inst, Degree) {
+    sprintf(name, "degree");
     construct_ordering();
   }
 
