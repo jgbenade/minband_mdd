@@ -1203,6 +1203,9 @@ int MinBandBDD::calculateCost_bounds(Node* _node){
 			if (smallest_cost_edge > largest_smallest_cost
 					and smallest_cost_edge <= inst->graph->n_vertices){
 				largest_smallest_cost = smallest_cost_edge;
+
+				if (largest_smallest_cost > upper_bound)
+						return largest_smallest_cost;
 			}
 			//cout << "exit" <<endl;
 		}
@@ -1282,6 +1285,9 @@ int MinBandBDD::calculateCost_bounds_fast(Node* _node){
 				if (smallest_cost_edge > largest_smallest_cost
 						and smallest_cost_edge <= inst->graph->n_vertices){
 					largest_smallest_cost = smallest_cost_edge;
+
+					if (largest_smallest_cost > upper_bound)
+										return largest_smallest_cost;
 				}
 				//cout << "exit" <<endl;
 			}
@@ -1322,6 +1328,9 @@ int MinBandBDD::calculateCost_bounds_fast(Node* _node){
 			if (smallest_cost_edge > largest_smallest_cost
 					and smallest_cost_edge <= inst->graph->n_vertices){
 				largest_smallest_cost = smallest_cost_edge;
+
+				if (largest_smallest_cost > upper_bound)
+					return largest_smallest_cost;
 			}
 			//cout << "exit" <<endl;
 		}
@@ -1378,6 +1387,9 @@ int MinBandBDD::calculateCost_mu2(Node* _node){
 
 			largest_guaranteed_cost = MAX(largest_guaranteed_cost,
 								(int)std::ceil(smallest_cost_edge/(1.*inst->graph->dist(vertex_in_layer[i], vertex_in_layer[j]))));
+
+			if (largest_guaranteed_cost > upper_bound)
+							return largest_guaranteed_cost;
 
 			//cout << smallest_cost_edge << " ";
 
@@ -1437,6 +1449,8 @@ int MinBandBDD::calculateCost_mu2_fast(Node* _node){
 				largest_guaranteed_cost = MAX(largest_guaranteed_cost,
 						(int)std::ceil(smallest_cost_edge/(1.*inst->graph->dist(vertex_in_layer[i], vertex_in_layer[j]))));
 
+				if (largest_guaranteed_cost > upper_bound)
+								return largest_guaranteed_cost;
 				//cout << smallest_cost_edge << " ";
 
 				//cout << "exit" <<endl;
@@ -1524,7 +1538,8 @@ int MinBandBDD::calculateCost_mu1(Node* _node){
 
 			largest_guaranteed_cost = MAX(largest_guaranteed_cost,
 								(int)std::ceil(smallest_cost_edge/(1.*inst->graph->dist(vertex_in_layer[i], vertex_in_layer[j]))));
-
+			if (largest_guaranteed_cost > upper_bound)
+				return largest_guaranteed_cost;
 			//todo return as soon as bigger than upperbound
 
 			//cout << "exit" <<endl;
@@ -1643,6 +1658,9 @@ int MinBandBDD::calculateCost_ILP(Node* _node){
 		else{
 			low_phi = phi+1;
 			phi = (int) low_phi + (hi_phi-low_phi)/2;
+
+			if (phi > upper_bound)
+				return phi;
 		}
 
 	}
@@ -1776,6 +1794,9 @@ int MinBandBDD::calculateCost(Node* _node){
 			if (smallest_cost_edge > largest_smallest_cost
 					and smallest_cost_edge <= inst->graph->n_vertices){
 				largest_smallest_cost = smallest_cost_edge;
+
+				if (largest_smallest_cost > upper_bound)
+					return largest_smallest_cost;
 			}
 			//cout << "exit" <<endl;
 		}
