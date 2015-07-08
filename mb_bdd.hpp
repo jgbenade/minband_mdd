@@ -32,7 +32,7 @@ typedef vector<Domain> State;
 struct StateLessThan {
 	bool operator()(const State* stateA, const State* stateB) const {
 		return (*stateA) < (*stateB);
-	} //TODO does this make sense here?
+	}
 };
 
 
@@ -44,10 +44,11 @@ struct Node {
 	int				cost;
 	bool			exact;
 
-	//todo
 	//vector<Node>	children;
 	int 			layer;
+
 	vector<std::vector<set<int> >::iterator> marked; //used for filtering
+	//vector<set<int> >::iterator domain, domain2;
 
 
 	Node(State &_state, double _cost)
@@ -64,15 +65,35 @@ struct Node {
 	int filterDomains();
 	int filterDomains2();
 	int filterDomains3();
+	int filterDomains4();
+	int filterDomains5();
 
 	void printState();
 
 };
 
+inline int Node::filterDomains5(){
+
+	if (exact){
+		int n = (*state.end()).size();
+		std::vector<set<int> >::iterator domain2 = --state.end();
+
+		//all we have to do is delete all the other things, cant be infeasible
+
+		for (std::vector<set<int> >::iterator domain=state.begin(); domain != --state.end(); ++domain	){
+
+			(*domain2).erase( *( (*domain).begin() ) );
+		}
+		return 1;
+	}
+	else
+		return filterDomains2();
+}
 inline int Node::filterDomains2(){
-	//cout << "Before "; printState();
+	//filters all states, including the last one (but doesnt return false if the last one is empty)
 	int feasible = 0;
 	//vector<std::vector<set<int> >::iterator> marked;
+	std::vector<set<int> >::iterator domain2 ;
 
 	for (std::vector<set<int> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
 		//marked.clear();
@@ -81,10 +102,10 @@ inline int Node::filterDomains2(){
 		//only for small sets, too expensive
 		if ((*domain).size()==1){
 
-			std::vector<set<int> >::iterator domain2 = state.begin();
+			domain2 = state.begin();
 
 			//count number of other domains that is a subset of this one, see if you can do an obv Hall set
-			while (domain2!= state.end()){
+			while (domain2 != state.end()){
 				// if this domain is included in the previous one
 				if (domain != domain2){
 					//std::set<int>::iterator itlow,itup;
@@ -103,20 +124,64 @@ inline int Node::filterDomains2(){
 				++domain2;
 			}
 		}
-
-		//printState();
-
 	}
-	//cout << "After "; printState();
-
-
-	/*for (std::vector<set<int> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
-		if ((*domain).size() == 0)
-			return -1;
-	}*/
 	return feasible;
 }
 
+inline int Node::filterDomains4(){
+	set<int> fixed;
+	std::pair<std::set<int>::iterator,bool> ret;
+
+	for (int i=0; i<state.size(); i++){
+		if (state[i].size()==1){
+			ret = fixed.insert(*(state[i].begin()) );
+			//test if we inserted a new value (if not duplicat singleton domains)
+			if (!ret.second){
+				return -1;
+			}
+		}
+		else{
+			for (set<int>::iterator val   = fixed.begin(); val != fixed.end(); ++ val)
+				state[i].erase(*val);
+
+			if (state[i].size() == 0)
+				return -1;
+			else
+				if (state[i].size() ==1){
+					ret = fixed.insert(*(state[i].begin()) );
+					if (!ret.second)
+						return -1;
+				}
+		}
+	}
+
+	//and in reverse
+	fixed.clear();
+	for (int i=state.size()-1; i>=0; i--){
+		if (state[i].size()==1){
+			ret = fixed.insert(*(state[i].begin()) );
+			//test if we inserted a new value (if not duplicat singleton domains)
+			if (!ret.second){
+				return -1;
+			}
+		}
+		else{
+			for (set<int>::iterator val   = fixed.begin(); val != fixed.end(); ++ val)
+				state[i].erase(*val);
+
+			if (state[i].size() == 0)
+				return -1;
+			else
+				if (state[i].size() ==1){
+					ret = fixed.insert(*(state[i].begin()) );
+					if (!ret.second)
+						return -1;
+				}
+		}
+	}
+
+	return 0;
+}
 inline int Node::filterDomains3(){
 	//last domain is full before filtering, use this to get n_vertices
 	vector<bool> flag(state[state.size()-1].size(), false);
@@ -183,8 +248,7 @@ inline int Node::filterDomains(){
 				if (domain!= domain2){
 					if (std::includes( (*domain).begin(), (*domain).end(),
 							(*domain2).begin(), (*domain2).end()) ){
-						std::vector<set<int> >::iterator it(domain2);
-						marked.push_back(it);
+						marked.push_back(domain2);
 					}
 				}
 				++domain2;
@@ -270,6 +334,7 @@ typedef unordered_map<State*, Node*> BDDNodePool;
 //
 // Node comparator by longest path
 //
+
 struct CompareNodesCost {
 	bool operator()(const Node* nodeA, const Node* nodeB) const {
 		return nodeA->cost < nodeB->cost;

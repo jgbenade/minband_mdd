@@ -197,12 +197,14 @@ public:
   	int calculateCost_bounds(Node* _node);
   	int calculateCost_bounds_fast(Node* _node);
   	int calculateCost_caprara(Node* _node);
+  	int calculateCost_caprara_gen(Node* _node);
   	int calculateCost_mu1(Node* node);
   	int calculateCost_mu2(Node* _node);
   	int calculateCost_mu2_fast(Node* _node);
   	int calculateCost_ILP(Node* _node);
 
   	int filterBounds(Node* node);
+  	int filterBounds2(State& state);
 
   	//bool mytriplecomp (const vector<int>& a, const vector<int>& b);
 
@@ -246,6 +248,11 @@ private:
     bool variable_width;  // if BDD maximum width is variable
 
     vector<vector<int> > edges_to_check;         //given the ordering, the mapped corresponding edges.
+
+    std::set<int>::iterator itlow,itup;          // used for filterbounds
+
+
+
 
 	// Auxiliary parameters
 	CompareNodesCost bn_comparator;
