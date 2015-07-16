@@ -202,26 +202,26 @@ void performDFS(MinBandBDD& minband_bdd, BranchNodeQueue& queue) {
 }
 
 
-void printSet(set<int>& _set){
-	for (set<int>::const_iterator i = _set.begin(); i!=_set.end(); ++i){
+void printSet(set<myint>& _set){
+	for (set<myint>::const_iterator i = _set.begin(); i!=_set.end(); ++i){
 		cout << *i;
 	}
 	cout << ',';
 }
 
 void testFilter(){
-	set<int> d1,d2;
+	set<myint> d1,d2;
 	d1.insert(1);
 	d2.insert(2);
 	d2.insert(3);
 
-	set<int> d3(d2);
+	set<myint> d3(d2);
 
-	set<int> d4(d2);
+	set<myint> d4(d2);
 	d4.insert(1);
 	d4.insert(4);
 
-	set<int> d5(d4); d5.insert(5);
+	set<myint> d5(d4); d5.insert(5);
 	State state;
 	state.push_back(d4);
 	state.push_back(d2);
@@ -266,18 +266,18 @@ void testFilter(){
 
 }
 void testStates(){
-	set<int> d1,d2;
+	set<myint> d1,d2;
 	d1.insert(1);
 	d2.insert(2);
 	d2.insert(3);
 
-	set<int> d3(d2);
+	set<myint> d3(d2);
 
-	set<int> d4(d2);
+	set<myint> d4(d2);
 	d4.insert(1);
 	d4.insert(4);
 
-	set<int> d5(d4); d5.insert(5);
+	set<myint> d5(d4); d5.insert(5);
 	State state;
 	state.push_back(d4);
 	state.push_back(d2);
@@ -299,8 +299,8 @@ void testStates(){
 	state.clear();
 	state2.clear();
 	cout << "State compare "<< (state == state2)<< endl ;
-	set<int> a;
-	set<int> b;
+	set<myint> a;
+	set<myint> b;
 	state.push_back(a);
 	state2.push_back(b);
 	cout << "State compare "<< (state == state2)<< endl ;
@@ -337,11 +337,12 @@ int main(int argc, char* argv[]) {
 		cout << endl;
 		exit(1);
 	}
-
+	cout << "Current data structure ssupports up to 2^"<< sizeof(myint)*8 << " vertices."<<endl;
 	// read input
 	int root_max_width = atoi(argv[2]);
 	int max_width = atoi(argv[3]);
 
+	cout << argv[0] <<"," << argv[1]<<"," << argv[2]<<"," << argv[3] <<endl;
 	// initialize time
 	maxTime = TIME_LIMIT * CLOCKS_PER_SEC;
 	init = clock();
@@ -357,7 +358,7 @@ int main(int argc, char* argv[]) {
 	MinBandBDD minband_bdd(root_max_width, max_width, argv[1]);
 	current = clock();
 	double totalTime = ((double)(current - init))/CLOCKS_PER_SEC;
-	cout << endl << totalTime << endl;
+	cout << endl << "Time at root "<< totalTime << endl;
 
 
 
@@ -389,13 +390,9 @@ int main(int argc, char* argv[]) {
 	// ------------------------------------------------------
 
 	// repeat until all search space is explored
-	/*while (!branch_node_queue.empty()) {
+	while (!branch_node_queue.empty()) {
 
-		cout << "brnach_node_queue size after relaxation "<< branch_node_queue.size() << endl;
-		for (BranchNodeQueue::iterator it = branch_node_queue. ; it != branch_node_queue.end(); ++it) {
-			(*it)->printState();
-		}
-		cout<<endl;
+		//cout << "branch_node_queue size after relaxation "<< branch_node_queue.size() << endl;
 
 		// switch temporally to DFS if necessary
 		if (size_pool > MAX_NODES_MEMORY) {
@@ -426,8 +423,6 @@ int main(int argc, char* argv[]) {
 		  cout << endl;
 		}
 
-		//cout<< branch_node->relax_lb << endl;
-
 		// explores node if not pruned due to global upper bound
 		if (branch_node->relax_lb < global_ub) {
 
@@ -445,7 +440,7 @@ int main(int argc, char* argv[]) {
 				//note that getUB returns upper_bound, not get_best_ub
 				global_ub = std::min(global_ub, minband_bdd.getUB());
 
-			}else {
+			}/*else {
 				// Primal heuristic **************************************
 				int ub = minband_bdd.generateRestriction(branch_node);
 				//cout << "Found sol value " << ub;
@@ -453,7 +448,7 @@ int main(int argc, char* argv[]) {
 				//cout << "updateing global_ub: " << global_ub << ub<< endl;
 				global_ub = std::min(global_ub, ub);
 				// *******************************************************
-			}
+			}*/
 
 			// add open nodes to pool
 			minband_bdd.addBranchNodesQueue(branch_node_queue, size_pool);
@@ -482,7 +477,7 @@ int main(int argc, char* argv[]) {
 		if (current - init >= maxTime) {
 			break;
 		}
-	}*/
+	}
 
 	cout << endl;
 	cout << "Lower bound = " << global_lb << endl;
@@ -490,6 +485,8 @@ int main(int argc, char* argv[]) {
 
 	current = clock();
 	totalTime = ((double)(current - init))/CLOCKS_PER_SEC;
+	cout << endl << "Total time "<< totalTime << endl;
+
 
 	char statfilename[256];
 	sprintf(statfilename, "stats.txt");
@@ -499,6 +496,7 @@ int main(int argc, char* argv[]) {
 	statfile << "\t" << nodes_explored;
 	statfile << "\t" << root_max_width;
 	statfile << "\t" << minband_bdd.inst->calculate_HalfDensity_Bound();
+	statfile << "\t" << minband_bdd.inst->calculate_HalfDensity_Bound_better();
 	statfile << "\t" << minband_bdd.inst->calculate_Caprara_Bound();
 	statfile << "\t" << global_lb;
 	statfile << "\t" << global_ub;

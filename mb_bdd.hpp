@@ -23,7 +23,10 @@ using namespace std;
 // State
 //
 //typedef boost::dynamic_bitset<> State;
-typedef set<int> Domain;
+//unsigned char has rang 0..255
+//typedef unsigned char myint;
+typedef  unsigned char myint;
+typedef set<myint> Domain;
 typedef vector<Domain> State;
 
 //
@@ -42,24 +45,25 @@ struct StateLessThan {
 struct Node {
 	State			state;
 	int				cost;
+	double			cost_delta;
 	bool			exact;
 
 	//vector<Node>	children;
 	int 			layer;
 
-	vector<std::vector<set<int> >::iterator> marked; //used for filtering
-	//vector<set<int> >::iterator domain, domain2;
+	vector<std::vector<set<myint> >::iterator> marked; //used for filtering
+	//vector<set<myint> >::iterator domain, domain2;
 
 
 	Node(State &_state, double _cost)
-	: state(_state), cost(_cost), exact(false), layer(-1)
+	: state(_state), cost(_cost), exact(false), layer(-1), cost_delta(0)
 	{ }
 
 	/*Node(State &_state, double _cost, bool _exact)
 	: state(_state), cost(_cost), exact(_exact),  layer(-1)
 	{ state.reserve(24);}*/
 	Node(State &_state, double _cost, bool _exact)
-		: state(_state), cost(_cost), exact(_exact),  layer(-1)
+	: state(_state), cost(_cost), exact(_exact),  layer(-1), cost_delta(0)
 		{ }
 
 	int filterDomains();
@@ -73,14 +77,13 @@ struct Node {
 };
 
 inline int Node::filterDomains5(){
-
 	if (exact){
 		int n = (*state.end()).size();
-		std::vector<set<int> >::iterator domain2 = --state.end();
+		std::vector<set<myint> >::iterator domain2 = --state.end();
 
 		//all we have to do is delete all the other things, cant be infeasible
 
-		for (std::vector<set<int> >::iterator domain=state.begin(); domain != --state.end(); ++domain	){
+		for (std::vector<set<myint> >::iterator domain=state.begin(); domain != --state.end(); ++domain	){
 
 			(*domain2).erase( *( (*domain).begin() ) );
 		}
@@ -92,10 +95,10 @@ inline int Node::filterDomains5(){
 inline int Node::filterDomains2(){
 	//filters all states, including the last one (but doesnt return false if the last one is empty)
 	int feasible = 0;
-	//vector<std::vector<set<int> >::iterator> marked;
-	std::vector<set<int> >::iterator domain2 ;
+	//vector<std::vector<set<myint> >::iterator> marked;
+	std::vector<set<myint> >::iterator domain2 ;
 
-	for (std::vector<set<int> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
+	for (std::vector<set<myint> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
 		//marked.clear();
 		//marked.push_back(domain);
 
@@ -108,7 +111,7 @@ inline int Node::filterDomains2(){
 			while (domain2 != state.end()){
 				// if this domain is included in the previous one
 				if (domain != domain2){
-					//std::set<int>::iterator itlow,itup;
+					//std::set<myint>::iterator itlow,itup;
 					//itlow = (*domain2).lower_bound(*( (*domain).begin() ) - ub* inst->graph->dist()
 
 					if (std::includes( (*domain2).begin(), (*domain2).end(),
@@ -129,8 +132,8 @@ inline int Node::filterDomains2(){
 }
 
 inline int Node::filterDomains4(){
-	set<int> fixed;
-	std::pair<std::set<int>::iterator,bool> ret;
+	set<myint> fixed;
+	std::pair<std::set<myint>::iterator,bool> ret;
 
 	for (int i=0; i<state.size(); i++){
 		if (state[i].size()==1){
@@ -141,7 +144,7 @@ inline int Node::filterDomains4(){
 			}
 		}
 		else{
-			for (set<int>::iterator val   = fixed.begin(); val != fixed.end(); ++ val)
+			for (set<myint>::iterator val   = fixed.begin(); val != fixed.end(); ++ val)
 				state[i].erase(*val);
 
 			if (state[i].size() == 0)
@@ -166,7 +169,7 @@ inline int Node::filterDomains4(){
 			}
 		}
 		else{
-			for (set<int>::iterator val   = fixed.begin(); val != fixed.end(); ++ val)
+			for (set<myint>::iterator val   = fixed.begin(); val != fixed.end(); ++ val)
 				state[i].erase(*val);
 
 			if (state[i].size() == 0)
@@ -185,7 +188,7 @@ inline int Node::filterDomains4(){
 inline int Node::filterDomains3(){
 	//last domain is full before filtering, use this to get n_vertices
 	vector<bool> flag(state[state.size()-1].size(), false);
-	set<int> fixed;
+	set<myint> fixed;
 
 	for (int i=0; i<state.size(); i++){
 		if (state[i].size()==1)
@@ -208,7 +211,7 @@ inline int Node::filterDomains3(){
 					/*std::set_difference(state[i].begin(), state[i].end(),
 							fixed.begin(), fixed.end(),
 							inserter(state[i],state[i].begin() ) );*/
-					for (set<int>::iterator val   = fixed.begin(); val != fixed.end(); ++ val)
+					for (set<myint>::iterator val   = fixed.begin(); val != fixed.end(); ++ val)
 						state[i].erase(*val);
 
 					if (state[i].size() == 0)
@@ -232,15 +235,15 @@ inline int Node::filterDomains(){
 	//cout << "Before "; printState();
 	//cout << "F " ; printState();
 	int feasible = 0;
-	//vector<std::vector<set<int> >::iterator> marked;
+	//vector<std::vector<set<myint> >::iterator> marked;
 
-	for (std::vector<set<int> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
+	for (std::vector<set<myint> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
 		marked.clear();
 		marked.push_back(domain);
 
 		//only for small sets, too expensive
 		if ((*domain).size()<3){
-			std::vector<set<int> >::iterator domain2 = state.begin();
+			std::vector<set<myint> >::iterator domain2 = state.begin();
 
 			//count number of other domains that is a subset of this one, see if you can do an obv Hall set
 			while (marked.size() < (*domain).size() and domain2!= state.end()){
@@ -269,7 +272,7 @@ inline int Node::filterDomains(){
 						//						(*domain).begin(), (*domain).end(),
 						//						std::inserter(pruned_domain, pruned_domain.end() ) );
 
-						for (std::set<int>::iterator value = (*domain).begin(); value!= (*domain).end(); ++value){
+						for (std::set<myint>::iterator value = (*domain).begin(); value!= (*domain).end(); ++value){
 							if ( (*domain2).count(*value) )
 								(*domain2).erase(*value);
 						}
@@ -286,7 +289,7 @@ inline int Node::filterDomains(){
 
 	}
 	// if the very last state is empty it means that we are ons the last layer
-	for (std::vector<set<int> >::iterator domain=state.begin(); domain !=state.end()-1; ++domain	){
+	for (std::vector<set<myint> >::iterator domain=state.begin(); domain !=state.end()-1; ++domain	){
 		if ((*domain).size() == 0 )
 			return -1;
 	}
@@ -294,10 +297,10 @@ inline int Node::filterDomains(){
 }
 
 inline void Node::printState(){
-	for( std::vector<set<int> >::const_iterator i = state.begin(); i != state.end(); ++i){
+	for( std::vector<set<myint> >::const_iterator i = state.begin(); i != state.end(); ++i){
 		cout << "/";
-		for( std::set<int>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
-			std::cout << *j ;
+		for( std::set<myint>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
+			std::cout << (int)(*j) ;
 		}
 
 	}
@@ -316,7 +319,7 @@ struct BDD {
 // BDD Node pool type
 //
 //typedef map<State*, Node*, StateLessThan> BDDNodePool;
-typedef unordered_map<State*, Node*> BDDNodePool;
+typedef unordered_map<State*, Node*>  BDDNodePool;
 
 
 //
@@ -340,6 +343,10 @@ struct CompareNodesCost {
 		return nodeA->cost < nodeB->cost;
 	}
 };
-
+struct CompareNodesCostDelta {
+	bool operator()(const Node* nodeA, const Node* nodeB) const {
+		return nodeA->cost+nodeA->cost_delta < nodeB->cost+nodeB->cost_delta;
+	}
+};
 
 #endif /* BDD_HPP_ */

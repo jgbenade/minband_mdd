@@ -57,17 +57,17 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	vertex_in_layer.push_back(4);
 	vertex_in_layer.push_back(2);
 	State s;
-	set<int> d1,d2;
+	set<myint> d1,d2;
 	d1.insert(2);
 	d2.insert(1);
 	d2.insert(3);
-	set<int> d3(d2);
+	set<myint> d3(d2);
 
-	set<int> d4(d1);
+	set<myint> d4(d1);
 	d4.insert(6);
 	d4.insert(7);
 
-	set<int> d5(d4); d5.insert(5);
+	set<myint> d5(d4); d5.insert(5);
 	s.push_back(d4);
 	s.push_back(d2);
 	s.push_back(d3);
@@ -100,6 +100,7 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 
 	cout << " ### Degree bound\t" << inst->calculate_Degree_Bound() << endl;
 	cout << " ### Half-density bound\t " << inst->calculate_HalfDensity_Bound() << endl;
+	cout << " ### Half-density bound better\t " << inst->calculate_HalfDensity_Bound_better() << endl;
 	cout << " ### Caprara bound   \t " << inst->calculate_Caprara_Bound() << endl;
 
     best_lb = std::max(inst->caprara_bound, inst->half_density_bound);
@@ -108,7 +109,7 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
     // generate relaxation
 
 	active_vertices.resize(inst->graph->n_vertices);
-	for (int i = 0; i < inst->graph->n_vertices; ++i) {
+	for (myint i = 0; i < inst->graph->n_vertices; ++i) {
 		active_vertices[i] = i;
 	}
 
@@ -217,7 +218,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		exit(0);
 	}
 
-	cout<< "Starting relaxation :: ("<< lower_bound << ") :: ["<< maxWidth << "] ::";
+	//cout<< "Starting relaxation :: ("<< lower_bound << ") :: ["<< maxWidth << "] ::";
 	// ---------------------------------------------------------------------
 	// 2. Relaxation
 	// ---------------------------------------------------------------------
@@ -236,15 +237,15 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 	//if this is the very first node active_state is empty so we have to put something in there before we copy it.
 	if (active_state.size() < 1 ){
 		Domain full_domain;
-		for (int i=0;i <= (int)(std::ceil(inst->graph->n_vertices/2)); i++) full_domain.insert(i);
+		for (myint i=0;i <= (int)(std::ceil(inst->graph->n_vertices/2)); i++) full_domain.insert(i);
 		active_state.push_back(full_domain);
 	}
 
 	//copy active_state to root_state
 	State root_state;
-	for( std::vector<set<int> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
+	for( std::vector<set<myint> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
 		Domain domain;
-		for( std::set<int>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
+		for( std::set<myint>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
 			//std::cout << *j ;
 			domain.insert(*j);
 		}
@@ -253,8 +254,8 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 	}
 
 	//print the initial state just to check
-	/*for( std::vector<set<int> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
-		for( std::set<int>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
+	/*for( std::vector<set<myint> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
+		for( std::set<myint>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
 			std::cout << *j ;
 		}
 		cout << ",";
@@ -263,13 +264,14 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 	//cout<< "creating initial root : activestate/vil size " << active_state.size() << vertex_in_layer.size()<<endl;
 
 	// create initial BDD node
-	Node* initial_node = new Node(root_state, 0, true);  initial_node->printState();
+	Node* initial_node = new Node(root_state, 0, true); // initial_node->printState();
 	node_pool.clear();
 	node_pool[ &(root_state) ] = initial_node;
 	root_node = initial_node;
 
 	BDDNodePool::iterator node_it, existing_node_it;
 	Node* node;
+	bool exactNodeInPool = true; // as soon as we have no more exact nodes left we can jump out asd start checking out children
 
 
 
@@ -281,8 +283,9 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 	//here active vertices are vertices that dont have domains yet
 
 	//Todo check count here
-	while ( layer < inst->graph->n_vertices ) {
+	while ( layer < inst->graph->n_vertices and exactNodeInPool ) {
 		//cout << "layer " << layer << " - ";
+		exactNodeInPool = false;
 		// ==================================
 		// 1. Vertex and BDD node selection
 		// ==================================
@@ -294,8 +297,10 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 			current_vertex = var_ordering->vertex_in_layer(new BDD(), layer);
 			active_vertices.erase(std::remove(active_vertices.begin(), active_vertices.end(), current_vertex), active_vertices.end());
 		}else if ( var_ordering->order_type == Degree ) {
-			current_vertex = var_ordering->vertex_in_layer(new BDD(), layer);
+			BDD* temp = new BDD();
+			current_vertex = var_ordering->vertex_in_layer(temp, layer);
 			active_vertices.erase(std::remove(active_vertices.begin(), active_vertices.end(), current_vertex), active_vertices.end());
+			delete temp;
 		}else if ( var_ordering->order_type == RootOrder ) {
 			current_vertex = active_vertices.back();
 			active_vertices.pop_back();
@@ -310,6 +315,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		vertex_in_layer.push_back( current_vertex );
 		assert( current_vertex != -1 );
 
+		for (vector<Node*>::iterator nit = nodes_layer.begin(); nit != nodes_layer.end(); ++nit)	delete *nit;
 		nodes_layer.clear();
 		//nodes_layer.resize(node_pool.size());
 		//cout << "Nodes_pool size " << node_pool.size();
@@ -319,6 +325,8 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 
 		while (node_it != node_pool.end())	{
 			//nodes_layer[node_pool_counter++] = node_it->second;
+			if ((node_it->second->exact)) exactNodeInPool = true;
+
 			nodes_layer.push_back(node_it->second);
 			if (min_cost_pool > node_it->second->cost)
 				min_cost_pool = node_it->second->cost;
@@ -351,6 +359,9 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 				// Second case: state does not contain vertex; we can maintain it in the pool
 				//++node_it;
 			}*/
+
+
+			//delete node_it->second ;
 			node_pool.erase(node_it++);
 
 		}
@@ -379,10 +390,9 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		// 3. Branching
 		// ==================================
 
-
 		Node* branch_node;
 		Domain full_domain;
-		for (int i=0;i<inst->graph->n_vertices; i++) full_domain.insert(i);
+		for (myint i=0;i<inst->graph->n_vertices; i++) full_domain.insert(i);
 		Domain domain;
 
 		for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end(); ++it) {
@@ -400,11 +410,11 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 			//domains should already be filtered once we get  here
 			//remove most recent domain, we are now branching on it
 			// definition can be moved outside, seems to be slower??
-			set<int> branch_domain = branch_node->state.back();
+			set<myint> branch_domain = branch_node->state.back();
 			branch_node->state.pop_back();
 
 
-			for (set<int>::const_iterator v = branch_domain.begin(); v != branch_domain.end(); ++v){
+			for (set<myint>::const_iterator v = branch_domain.begin(); v != branch_domain.end(); ++v){
 				domain.clear();
 				domain.insert(*v);
 
@@ -423,10 +433,8 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 				}
 				else{
 
-					node->cost = MAX(node->cost, calculateCost_caprara_gen (node));
-					//cout << "a"<<endl  ;
-					//node->printState();
-					//cout<< endl;
+					//	node->cost = MAX(node->cost, calculateCost_caprara_fixed(node));
+					node->cost = MAX(node->cost, calculateCost_bounds_fast (node));
 
 					if (node->cost < upper_bound) {
 						// Equivalence test: check if node is in list
@@ -453,7 +461,6 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 						delete node;
 					}
 				}
-
 			}
 			//for every value in the current vertex's domain (the last domain) do
 			// replace that domain with a singleon, do alldiff filtering
@@ -463,7 +470,6 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 			//for(vector<int>::cons)
 
 		}
-
 		//delete branch_node;
 
 		// if the number of nodes in the pool is empty, then we do not need to explore this BDD further
@@ -544,7 +550,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 			/*if (min_cost_pool > node_it->second->cost){
 				min_cost_pool = node_it->second->cost;
 			}*/
-
+			delete	 node_it->second;
 			node_it++;
 	}
 	cout <<endl << "at lb: "<< count_low << " / " << node_pool.size() << "\t Exact: " << count_exact << " / " << node_pool.size()<< endl;
@@ -588,8 +594,11 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 	}*/
 
 	//best_lb = MAX(best_lb, lower_bound);
-
 	//vertex_in_layer = orig_vertex_in_layer;
+	for (vector<Node*>::iterator nit = nodes_layer.begin(); nit != nodes_layer.end(); ++nit)	delete *nit;
+	nodes_layer.clear();
+	node_pool.clear();
+
 	return lower_bound;
 }
 
@@ -599,7 +608,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 //
 void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 	//cout << "Merging layer "<< endl;
-	sort(nodes_layer.begin(), nodes_layer.end(), CompareNodesCost());
+	sort(nodes_layer.begin(), nodes_layer.end(), CompareNodesCostDelta());
 	/*for (vector<Node*>::const_iterator node_it =  nodes_layer.begin(); node_it != nodes_layer.end() ; ++node_it){
 		cout << (*node_it)->cost ;
 	} cout << endl;*/
@@ -667,29 +676,23 @@ void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 
 		for (vector<Node*>::iterator node = nodes_layer.begin() + maxWidth; node != nodes_layer.end(); ++node) {
 
-			if ((*central_state)[i].size() != inst->graph->n_vertices){
+			if ((*central_state)[i].size() != inst->graph->n_vertices ){
 				(*central_state)[i].insert((*node)->state[i].begin(), (*node)->state[i].end());
 
-				if (i== (*central_state).size() - 1){
-					// if any of the remaining nodes to merge is exact, we have to add it to the branch pool as well.
-					/*if ((*node)->exact) {
-						addBranchNode((*node));
-					}*/
-					// delete node
-					delete (*node);
-				}
 			}
 			else{
-				if (i == (*central_state).size() - 1){
-					// if any of the remaining nodes to merge is exact, we have to add it to the branch pool as well.
-					/*if ((*node)->exact) {
-						addBranchNode((*node));
-					}*/
-					// delete node
-					delete (*node);
-				}
-				//domain already full, go to next
-				node  = --nodes_layer.end();
+				if( i < (*central_state).size() -1)
+					//domain already full, go to next
+					node  = --nodes_layer.end();
+			}
+			if (i == (*central_state).size() - 1){
+				(*central_state)[i].insert((*node)->state[i].begin(), (*node)->state[i].end());
+				// if any of the remaining nodes to merge is exact, we have to add it to the branch pool as well.
+				if ((*node)->exact) {
+									addBranchNode((*node));
+								}
+				// delete node
+				delete (*node);
 			}
 		}
 	}
@@ -835,15 +838,15 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 	//if this is the very first node active_state is empty so we have to put something in there before we copy it.
 	if (active_state.size() < 1 ){
 		Domain full_domain;
-		for (int i=0; i<= (int)(std::ceil(inst->graph->n_vertices/2)); i++) full_domain.insert(i);
+		for (unsigned char i=0; i<= (int)(std::ceil(inst->graph->n_vertices/2)); i++) full_domain.insert(i);
 		active_state.push_back(full_domain);
 	}
 
 	//copy active_state to root_state
 	State root_state;
-	for( std::vector<set<int> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
+	for( std::vector<set<myint> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
 		Domain domain;
-		for( std::set<int>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
+		for( std::set<myint>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
 			//std::cout << *j ;
 			domain.insert(*j);
 		}
@@ -852,15 +855,15 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 	}
 
 	/*//print the initial state just to check
-	for( std::vector<set<int> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
-		for( std::set<int>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
+	for( std::vector<set<myint> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
+		for( std::set<myint>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
 			std::cout << *j ;
 		}
 		cout << ",";
 	}*/
 
 	// create initial BDD node
-	Node* initial_node = new Node(root_state, 0, true); initial_node->printState();
+	Node* initial_node = new Node(root_state, 0, true);
 	node_pool.clear();
 	node_pool[ &(root_state) ] = initial_node;
 	root_node = initial_node;
@@ -958,7 +961,7 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 		Node* branch_node;
 		Domain full_domain;
 		//Domain domain;
-		for (int i=0;i<inst->graph->n_vertices; i++) full_domain.insert(i);
+		for (myint i=0;i<inst->graph->n_vertices; i++) full_domain.insert(i);
 
 		for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end(); ++it) {
 
@@ -969,7 +972,7 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 
 			//domains should already be filtered once we get  here
 			//remove most recent domain, we are now branching on it
-			set<int> branch_domain = branch_node->state.back();
+			set<myint> branch_domain = branch_node->state.back();
 			//branch_node->state.pop_back();
 			branch_node->state.back().clear();
 
@@ -981,7 +984,7 @@ int MinBandBDD::generateRestriction(const int initial_lp) {
 
 
 
-			for (set<int>::const_iterator v = branch_domain.begin(); v != branch_domain.end(); ++v){
+			for (set<myint>::const_iterator v = branch_domain.begin(); v != branch_domain.end(); ++v){
 				Domain domain(full_domain);
 				//domain.insert(*v);
 
@@ -1235,6 +1238,19 @@ int MinBandBDD::calculateCost_caprara_gen(Node* _node){
 	}
 	return outside_max;
 
+}
+
+int MinBandBDD::calculateCost_caprara_fixed(Node* _node){
+	vector<bool> possible_start(inst->graph->n_vertices, true);
+	int bound = 0;
+	//only check for vertices fixed in first/last position
+	for(vector<Domain>::const_iterator state_it = _node->state.begin(); state_it!= _node->state.end()-1; ++ state_it){
+		if ((*state_it).size() == 1){
+			if ( (*(*state_it).begin())  == 1 or (*(*state_it).begin()) == inst->graph->n_vertices)
+				bound = max(bound, inst->caprara_list[vertex_in_layer[state_it - _node->state.begin()]] );
+		}
+	}
+	return bound;
 }
 
 int MinBandBDD::calculateCost_caprara(Node* _node){
@@ -1659,7 +1675,7 @@ int MinBandBDD::calculateCost_mu1(Node* _node){
 		return 1;
 
 	int largest_guaranteed_cost = 0;
-	set<int>::const_iterator i_val,j_val;
+	set<myint>::const_iterator i_val,j_val;
 
 	//for (int i = 0; i < MIN(_node->state.size(), vertex_in_layer.size())-1; i++){
 	for (int i = 0; i < _node->state.size() -2; i++){
@@ -1731,8 +1747,8 @@ int MinBandBDD::calculateCost_ILP(Node* _node){
 			for(vector<int>::const_iterator fixed_it = fixed.begin(); fixed_it!= fixed.end(); ++fixed_it){
 				int h = inst->graph->dist(i,*fixed_it);
 				//min {h*phi +i }
-				trip[1] = std::min(trip[1], - h*phi + *_node->state[layer_containing_vertex[*fixed_it]].begin() );
-				trip[2] = std::max(trip[2], h*phi + *_node->state[layer_containing_vertex[*fixed_it]].begin() );
+				trip[1] = std::min(trip[1], - h*phi + (int)(*_node->state[layer_containing_vertex[*fixed_it]].begin()) );
+				trip[2] = std::max(trip[2], h*phi + (int)(*_node->state[layer_containing_vertex[*fixed_it]].begin()) );
 			}
 
 			//within bounds
@@ -1741,8 +1757,8 @@ int MinBandBDD::calculateCost_ILP(Node* _node){
 
 			//if we have a domain for this vertex, update bounds
 			if (layer_containing_vertex[i] >-1){
-				trip[1] = std::max(trip[1], *(_node->state[layer_containing_vertex[i]].begin() ) );
-				trip[2] = std::min(trip[2], *(--_node->state[layer_containing_vertex[i]].end() ));
+				trip[1] = std::max(trip[1], (int)(*(_node->state[layer_containing_vertex[i]].begin()) ) );
+				trip[2] = std::min(trip[2], (int)(*(--_node->state[layer_containing_vertex[i]].end()) ));
 			}
 			//cout << trip[0] <<"," <<trip[1]<< "," << trip[2]<<endl;
 			data_vertices.push_back(trip);
@@ -1901,7 +1917,7 @@ int MinBandBDD::calculateCost(Node* _node){
 
 	int largest_smallest_cost = 0;
 	vector<int>::const_iterator j;
-	set<int>::const_iterator i_val,j_val;
+	set<myint>::const_iterator i_val,j_val;
 
 	//for (int i = 0; i < MIN(_node->state.size(), vertex_in_layer.size())-1; i++){
 	for (int i = 0; i < edges_to_check.size(); i++){
@@ -1921,7 +1937,7 @@ int MinBandBDD::calculateCost(Node* _node){
 
 					//test if ew are already had longer on any of the edges, if so this will only get smaller, bail
 					//test if we are close enough to i_val that we ca decrease smallest_edge, if not no point in checking
-					//for (set<int>::const_iterator j_val = _node->state[*j].begin(); j_val != _node->state[*j].end() and !smallEnough and ((*j_val) <= (*i_val) + smallest_cost_edge); ++j_val){
+					//for (set<myint>::const_iterator j_val = _node->state[*j].begin(); j_val != _node->state[*j].end() and !smallEnough and ((*j_val) <= (*i_val) + smallest_cost_edge); ++j_val){
 					for ( j_val = _node->state[*j].begin(); j_val != _node->state[*j].end() and !smallEnough; ++j_val){
 						//int a = (*i_val);
 						//int b = (*j_val);
@@ -1933,12 +1949,8 @@ int MinBandBDD::calculateCost(Node* _node){
 							if (smallest_cost_edge < largest_smallest_cost)
 								smallEnough = true;
 						}
-
-
 					}
 				}
-
-
 			}
 
 			//cout << smallest_cost_edge << " ";
@@ -1959,18 +1971,114 @@ int MinBandBDD::calculateCost(Node* _node){
 
 }
 
+double MinBandBDD::calculateCost_bounds_delta(Node* _node){
+	/* Only use the largest nd smalles t element in every domain to calc
+	 * costs, take these minimum costs and do
+	 */
+
+
+	//what happens to vertex_in_layer between iterations? reset?
+	while (edges_to_check.size() > vertex_in_layer.size())
+		edges_to_check.pop_back();
+
+
+	//see if we are on a new level, map the ne wedges if so
+	//this assumes that all nodes have the same ordering
+
+	//this may get called at any stage, add all edges we missed
+	std::vector<int>::iterator from,to;
+	vector<int>  edges_renamed;
+	while(vertex_in_layer.size() > edges_to_check.size()){
+		edges_renamed.clear();
+		from = vertex_in_layer.begin() + edges_to_check.size();
+
+		for (to = vertex_in_layer.begin(); to != from; ++to){
+			if (inst->graph->adj_m[*to][*from] ){
+				edges_renamed.push_back( to - vertex_in_layer.begin() );
+			}
+		}
+		edges_to_check.push_back(edges_renamed);
+	}
+
+	// we need to have at least two domains to calculate a cost.
+	if (vertex_in_layer.size() < 2 || _node->state.size()<2)
+		return 0;
+
+	int largest_smallest_cost = 0;
+	vector<int> cost_counts(upper_bound+1,0);
+
+	//for (int i = 0; i < MIN(_node->state.size(), vertex_in_layer.size())-1; i++){
+	for (int i = 0; i < edges_to_check.size(); i++){
+		//cout << "domain1= "<<i<< " - " << edges_to_check[i].size() << " :" << (edges_to_check[i].begin() -edges_to_check[i].end()) ;
+		for (vector<int>::const_iterator j = edges_to_check[i].begin(); j != edges_to_check[i].end(); ++j){
+			//cout << "enter"<< i<< *j << ";"<<_node->state[i].size()<< _node->state[*j].size() << endl;
+			int smallest_cost_edge = inst->graph->n_vertices+1;
+
+			//handle case where both domains are everything
+			if (_node->state[i].size() == inst->graph->n_vertices or _node->state[*j].size() == inst->graph->n_vertices){
+				smallest_cost_edge = 1;
+			}
+			else{
+				int lb1 = *(_node->state[i].begin());
+				int ub1 = *(--_node->state[i].end());
+
+				int lb2 = *(_node->state[*j].begin());
+				int ub2 = *(--_node->state[*j].end());
+
+				//contained, dist 1
+				if (lb1 <= lb2 and ub2 <= ub1) smallest_cost_edge = 1;
+				if (lb2 <= lb1 and ub1 <= ub2) smallest_cost_edge = 1;
+				//overlapping, dist 1
+				if (lb1 <= lb2 and ub1 <= ub2 and ub1 >= lb2) smallest_cost_edge = 1;
+				if (lb2 <= lb1 and ub2 <= ub1 and ub2 >= lb1) smallest_cost_edge = 1;
+				//disjoint, calc dist
+				if (ub1 <= lb2) smallest_cost_edge = std::abs(ub1 - lb2);
+				if (ub2 <= lb1) smallest_cost_edge = std::abs(ub2 - lb1);
+
+			}
+
+			if (smallest_cost_edge < upper_bound)
+				cost_counts[smallest_cost_edge]++;
+			//cout << smallest_cost_edge << " ";
+			if (smallest_cost_edge > largest_smallest_cost
+					and smallest_cost_edge <= inst->graph->n_vertices){
+				largest_smallest_cost = smallest_cost_edge;
+
+				if (largest_smallest_cost >= upper_bound)
+						return largest_smallest_cost;
+			}
+			//cout << "exit" <<endl;
+		}
+		//cout << endl;
+	}
+	//calculate the additional terms of delta
+	vector<int> products(largest_smallest_cost+1,0);
+	products[largest_smallest_cost] = inst->graph->n_vertices+1;
+	for(int i=largest_smallest_cost-1; i>=0; i--)
+		products[i] = products[i+1]*(inst->graph->n_vertices + largest_smallest_cost - i +1 );
+
+	double sum =0;
+	for (int i=1; i<=largest_smallest_cost; i++)
+		sum = sum + ((1.*cost_counts[i])/products[i]);
+
+	_node->cost_delta = sum;
+	//cout << largest_smallest_cost + sum<< endl;
+	return largest_smallest_cost;
+
+}
+
 int MinBandBDD::filterBounds(Node* node){
 	//if the node is exact all possible filtering was alredy done by filterbounds2
 	if (node->exact)
 		return 1;
 	//skips last domain (th fulldomain just pushed)
-	std::vector<set<int> >::iterator domain2;
+	std::vector<set<myint> >::iterator domain2;
 	int feasible = 0;
 	int jump;
 
-	//vector<std::vector<set<int> >::iterator> marked;
+	//vector<std::vector<set<myint> >::iterator> marked;
 	//cout<< "a "; node->printState();
-	for (std::vector<set<int> >::iterator domain=node->state.begin(); domain != node->state.end(); ++domain	){
+	for (std::vector<set<myint> >::iterator domain=node->state.begin(); domain != node->state.end(); ++domain	){
 
 		if ((*domain).size()==1){
 
@@ -1982,14 +2090,12 @@ int MinBandBDD::filterBounds(Node* node){
 			while (domain2 != --node->state.end()){
 				// if this domain is included in the previous one
 				if (domain != domain2){
-					jump = upper_bound * inst->graph->dist(vertex_in_layer[domain - node->state.begin()], vertex_in_layer[domain2 - node->state.begin()]);
-					if (*( (*domain).begin() ) + jump < *(--(*domain2).end()) or *( (*domain).begin() )  - jump > *((*domain2).begin())){
-						//todo keep track, do a single erase
+					jump = (upper_bound-1) * inst->graph->dist(vertex_in_layer[domain - node->state.begin()], vertex_in_layer[domain2 - node->state.begin()]);
 
-						itlow = (*domain2).lower_bound(*( (*domain).begin() ) -
-								upper_bound * inst->graph->dist(vertex_in_layer[domain - node->state.begin()], vertex_in_layer[domain2 - node->state.begin()]));
-						itup = (*domain2).upper_bound(*( (*domain).begin() ) +
-								upper_bound * inst->graph->dist(vertex_in_layer[domain - node->state.begin()], vertex_in_layer[domain2 - node->state.begin()]));
+					if ( *( (*domain).begin() ) + jump < (int)*(--(*domain2).end()) or *( (*domain).begin() )  - jump > (int)*((*domain2).begin())){
+						//todo keep track, do a single erase
+						itlow = (*domain2).lower_bound((myint)std::max(0,(*( (*domain).begin() ) -jump) ) );
+						itup = (*domain2).upper_bound((myint)(*( (*domain).begin() ) + jump));
 
 						/*cout << "( " << *((*domain2).begin()) << " , " << *(--(*domain2).end())
 							 << " ) -> ( " << *itlow << " , " << *itup << " ) "<< endl;*/
@@ -2026,7 +2132,7 @@ int MinBandBDD::filterBounds(Node* node){
 	}
 	//cout << "After "; printState();
 
-	/*for (std::vector<set<int> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
+	/*for (std::vector<set<myint> >::iterator domain=state.begin(); domain !=state.end(); ++domain	){
 		if ((*domain).size() == 0)
 			return -1;
 	}*/
@@ -2035,10 +2141,10 @@ int MinBandBDD::filterBounds(Node* node){
 int MinBandBDD::filterBounds2(State& state){
 	//skips last domain (th fulldomain just pushed)
 
-	std::vector<set<int> >::iterator domain2;
+	std::vector<set<myint> >::iterator domain2;
 	int feasible = 0;
 	int jump;
-	for (std::vector<set<int> >::iterator domain=state.begin(); domain != state.end(); ++domain	){
+	for (std::vector<set<myint> >::iterator domain=state.begin(); domain != state.end(); ++domain	){
 		if ((*domain).size()==1){
 
 			//only filter the most recently added domain
@@ -2046,13 +2152,12 @@ int MinBandBDD::filterBounds2(State& state){
 
 			// if this domain is included in the previous one
 			if (domain != domain2 and (*domain2).size()>0){
-				jump = upper_bound * inst->graph->dist(vertex_in_layer[domain - state.begin()], vertex_in_layer[domain2 - state.begin()]);
+				jump = (upper_bound-1) * inst->graph->dist(vertex_in_layer[domain - state.begin()], vertex_in_layer[domain2 - state.begin()]);
 				if (*( (*domain).begin() ) + jump < *(--(*domain2).end()) or *( (*domain).begin() )  - jump > *((*domain2).begin())){
 
-					itlow = (*domain2).lower_bound(*( (*domain).begin() ) -
-							upper_bound * inst->graph->dist(vertex_in_layer[domain -  state.begin()], vertex_in_layer[domain2 -  state.begin()]));
-					itup = (*domain2).upper_bound(*( (*domain).begin() ) +
-							upper_bound * inst->graph->dist(vertex_in_layer[domain -  state.begin()], vertex_in_layer[domain2 -  state.begin()]));
+					itlow = (*domain2).lower_bound((myint)std::max(0,(*( (*domain).begin() ) - jump) ) );
+					itup = (*domain2).upper_bound((myint)(*( (*domain).begin() ) + jump));
+
 					(*domain2).erase((*domain2).begin(), itlow);
 					(*domain2).erase(itup, (*domain2).end());
 				}

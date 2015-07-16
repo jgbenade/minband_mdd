@@ -34,7 +34,7 @@ using namespace std;
 // -------------------------------------------------------------------
 
 struct BranchNode {
-	vector<set<int> >		state;				// state to be explored
+	vector<set<myint> >		state;				// state to be explored
 	int   					cost;				// node cost
 	int   					relax_lb;           // upper bound obtained for the BDD where node was created
 	vector<int>				vertex;
@@ -45,7 +45,7 @@ struct BranchNode {
 	:	cost(_cost), relax_lb(0)
 	{
 		const State& state_v = _node->state;
-		for (vector<set<int> >::const_iterator it = state_v.begin(); it != state_v.end(); ++it) {
+		for (vector<set<myint> >::const_iterator it = state_v.begin(); it != state_v.end(); ++it) {
 			state.push_back(*it);
 		}
 	}
@@ -53,7 +53,7 @@ struct BranchNode {
 	//
 	// Constructor from a state vector
 	//
-	BranchNode(const vector<set<int> >& _state, double _cost)
+	BranchNode(const vector<set<myint> >& _state, double _cost)
 	:	state(_state), cost(_cost), relax_lb(0)
 	{
 	}
@@ -68,9 +68,9 @@ struct BranchNode {
 };
 
 inline void BranchNode::printState(){
-	for( std::vector<set<int> >::const_iterator i = state.begin(); i != state.end(); ++i){
+	for( std::vector<set<myint> >::const_iterator i = state.begin(); i != state.end(); ++i){
 		cout << "/";
-		for( std::set<int>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
+		for( std::set<myint>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
 			std::cout << *j ;
 		}
 
@@ -156,6 +156,18 @@ public:
 				const int _ddWidth,
 				const string & _instanceName);
 
+	//destructor
+	~MinBandBDD(){
+		delete inst;
+		//delete root_node;
+		delete var_ordering;
+		if (branch_nodes.size() > 0){
+			for(vector<BranchNode*>::iterator it = branch_nodes.begin(); it!=branch_nodes.end(); ++it)
+				delete *it;
+			branch_nodes.clear();
+		}
+	}
+
 	// Generate relaxation. Returns true iff relaxation is exact.
 	int generateRelaxation(const int initial_weight);
 
@@ -198,10 +210,12 @@ public:
   	int calculateCost_bounds_fast(Node* _node);
   	int calculateCost_caprara(Node* _node);
   	int calculateCost_caprara_gen(Node* _node);
+  	int calculateCost_caprara_fixed(Node* _node);
   	int calculateCost_mu1(Node* node);
   	int calculateCost_mu2(Node* _node);
   	int calculateCost_mu2_fast(Node* _node);
   	int calculateCost_ILP(Node* _node);
+  	double calculateCost_bounds_delta(Node* node);
 
   	int filterBounds(Node* node);
   	int filterBounds2(State& state);
@@ -249,7 +263,7 @@ private:
 
     vector<vector<int> > edges_to_check;         //given the ordering, the mapped corresponding edges.
 
-    std::set<int>::iterator itlow,itup;          // used for filterbounds
+    std::set<myint>::iterator itlow,itup;          // used for filterbounds
 
 
 
@@ -343,6 +357,7 @@ inline void MinBandBDD::updateLocalUB(int _ub, bool isLocal) {
 //
 inline void MinBandBDD::addBranchNode(Node* _node) {
 	//cout << "Adding branch node " ; _node->printState();
+	//Disabled because only lloking at root\//TODO renable
 	branch_nodes.push_back(	new BranchNode(_node, _node->cost) );
 }
 

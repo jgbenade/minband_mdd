@@ -46,6 +46,12 @@ struct Graph {
 	/** Create an isomorphic graph according to a vertex mapping */
 	Graph(Graph* graph, vector<int>& mapping);
 
+	~Graph(){
+		for (int i=0; i< n_vertices; i++)	delete [] adj_m[i] ;
+		delete[] adj_m;
+		delete [] weights;
+	}
+
 	/** Read graph from a DIMACS format */
 	void read_dimacs(const char* filename);
 
@@ -86,6 +92,7 @@ struct MinBandInst {
 	Graph*              				graph;             	// independent set graph
 	//vector< boost::dynamic_bitset<> >	adj_mask_compl;	 	// complement mask of adjacencies
 
+	~MinBandInst(){delete graph;}
 
 	/** Read DIMACS independent set instance */
 	void read_DIMACS(const char* filename);
@@ -95,11 +102,12 @@ struct MinBandInst {
 	int calculate_Caprara_Bound();
 
 	int calculate_HalfDensity_Bound();
+	int calculate_HalfDensity_Bound_better();
 
 	int 						degree_bound;       /** max degree /2 **/
 	int							caprara_bound;		/** Bound by Caprara, Salazar-Gonzalez**/
 	int 						half_density_bound; /** 1/2 approx of density bound (Blum et al) **/
-
+	int 						half_density_bound_b;
 	vector<int>					caprara_list;       /**list stores max \lceil (N_k(v)-1)/k\rceil for every v
 		 	 	 	 	 	 	 	 	 	 	 	 	 	 Used for computing alpha_1^S efficiently**/
 
@@ -314,6 +322,54 @@ inline int MinBandInst::calculate_HalfDensity_Bound(){
 	half_density_bound = (int)std::ceil(current_bound);
 	//cout<< "Half-density bound= "<< current_bound<< endl;
 	return half_density_bound;
+}
+
+inline int MinBandInst::calculate_HalfDensity_Bound_better(){
+	//instead of using 2k as distance, we actually see what the largest distance in G is ,
+	// guaranteed to be <= 2k, should get better bound
+	double current_bound = 0;
+
+	for (int v = 0; v<graph->n_vertices; v++){
+		// cout << "making layered graph at=" <<v <<endl;
+		vector<vector<int> > layered_graph = graph->vertex_neighbourhood[v];
+		//cout << "done layered at="<<v<<endl;
+
+		/*for(vector<vector<int> >::const_iterator l = layered_graph.begin(); l!= layered_graph.end(); ++l){
+			for (vector<int>::const_iterator ll = (*l).begin(); ll!= (*l).end(); ++ll){
+				cout << (*ll);
+			} cout << ",";
+		}cout << endl;*/
+
+		int cumulative_vertices = 0;
+		double internal_max = 0;
+		int largest_dist = 1;
+		vector<int> neighbourhood;
+		neighbourhood.push_back(v);
+
+		for (vector<vector<int> >::iterator layer = layered_graph.begin()+1; layer != layered_graph.end(); ++layer){
+			// calculate the distance
+			neighbourhood.insert(neighbourhood.begin(),(*layer).begin(), (*layer).end());
+			for (vector<int>::iterator it1 = (*layer).begin(); it1 != (*layer).end(); ++it1){
+				for (vector<int>::iterator it2 = neighbourhood.begin(); it2 != neighbourhood.end(); ++it2){
+					largest_dist = max(largest_dist, graph->dist(*it1, *it2) );
+				}
+			}
+
+			cumulative_vertices = cumulative_vertices + (*layer).size();
+			int layer_number = layer - layered_graph.begin();
+			//cout << cumulative_vertices << "\t" << layer_number << endl;
+			if (layer_number >0){
+				internal_max = std::max(internal_max, (double)((1.*cumulative_vertices-1)/(largest_dist)) );
+			}
+
+		}
+		//cout << "nov=" <<cumulative_vertices << "nol=" << layered_graph.size() << endl;
+		current_bound = std::max(current_bound, internal_max);
+	}
+
+	half_density_bound_b = (int)std::ceil(current_bound);
+	//cout<< "Half-density bound= "<< current_bound<< endl;
+	return half_density_bound_b;
 }
 
 inline vector<vector<int> > Graph::make_layered_graph(int v_){
