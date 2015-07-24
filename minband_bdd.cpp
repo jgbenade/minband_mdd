@@ -122,8 +122,8 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	//int ub2 = generateRestriction(inst->graph->n_vertices);
 	//upper_bound = ub1;
 	//upper_bound = MIN(upper_bound,ub2);
-	//int lb1 = generateRelaxation(-1);
-	//best_lb = MAX(lb1, best_lb);
+	int lb1 = generateRelaxation(-1);
+	best_lb = MAX(lb1, best_lb);
 	//int ub1 = generateRestriction(inst->graph->n_vertices);
 
 	cout << " ### Lower bound: " << lower_bound << endl;
@@ -137,10 +137,10 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 
 	// initialize branch node pool
 	//update bounds because the higher level search repeatedly copy form the pool
-	/*for (vector<BranchNode*>::iterator st = branch_nodes.begin(); st != branch_nodes.end(); ++st) {
+	for (vector<BranchNode*>::iterator st = branch_nodes.begin(); st != branch_nodes.end(); ++st) {
 		//(*st)->relax_lb = MIN(ub1, (*st)->cost + (int)(*st)->state.size());
 		(*st)->relax_lb = MAX(lb1, (*st)->cost);
-	}*/
+	}
 
 	// set new variable ordering
 	//	var_ordering = new RootOrdering(inst);
