@@ -122,8 +122,8 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	//int ub2 = generateRestriction(inst->graph->n_vertices);
 	//upper_bound = ub1;
 	//upper_bound = MIN(upper_bound,ub2);
-	int lb1 = generateRelaxation(-1);
-	best_lb = MAX(lb1, best_lb);
+	//int lb1 = generateRelaxation(-1);
+	//best_lb = MAX(lb1, best_lb);
 	//int ub1 = generateRestriction(inst->graph->n_vertices);
 
 	cout << " ### Lower bound: " << lower_bound << endl;
@@ -137,10 +137,10 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 
 	// initialize branch node pool
 	//update bounds because the higher level search repeatedly copy form the pool
-	for (vector<BranchNode*>::iterator st = branch_nodes.begin(); st != branch_nodes.end(); ++st) {
+	/*for (vector<BranchNode*>::iterator st = branch_nodes.begin(); st != branch_nodes.end(); ++st) {
 		//(*st)->relax_lb = MIN(ub1, (*st)->cost + (int)(*st)->state.size());
 		(*st)->relax_lb = MAX(lb1, (*st)->cost);
-	}
+	}*/
 
 	// set new variable ordering
 	//	var_ordering = new RootOrdering(inst);
@@ -282,8 +282,8 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 	const int num_active_vertices = inst->graph->n_vertices - layer;
 	//here active vertices are vertices that dont have domains yet
 
-	//Todo check count here
-	while ( layer < inst->graph->n_vertices and exactNodeInPool ) {
+	//Todo enable/disable early breaks
+	while ( layer < inst->graph->n_vertices /*and exactNodeInPool */) {
 		//cout << "layer " << layer << " - ";
 		exactNodeInPool = false;
 		// ==================================
@@ -384,8 +384,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		if( maxWidth != INF && (int)nodes_layer.size() > maxWidth ) {
 			mergeLayer(layer, nodes_layer);
 		}
-		cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost << endl;
-
+		cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;		if (!exactNodeInPool) cout << "x"; cout << endl;
 		// ==================================
 		// 3. Branching
 		// ==================================

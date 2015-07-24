@@ -373,7 +373,7 @@ int main(int argc, char* argv[]) {
 	  global_ub = minband_bdd.getUB();
 	}
 
-	// approximate size of the pool
+	/*// approximate size of the pool
 	size_pool = 0;
 
 	// number of nodes explored
@@ -440,7 +440,7 @@ int main(int argc, char* argv[]) {
 				//note that getUB returns upper_bound, not get_best_ub
 				global_ub = std::min(global_ub, minband_bdd.getUB());
 
-			}/*else {
+			}else {
 				// Primal heuristic **************************************
 				int ub = minband_bdd.generateRestriction(branch_node);
 				//cout << "Found sol value " << ub;
@@ -448,7 +448,7 @@ int main(int argc, char* argv[]) {
 				//cout << "updateing global_ub: " << global_ub << ub<< endl;
 				global_ub = std::min(global_ub, ub);
 				// *******************************************************
-			}*/
+			}
 
 			// add open nodes to pool
 			minband_bdd.addBranchNodesQueue(branch_node_queue, size_pool);
@@ -477,7 +477,7 @@ int main(int argc, char* argv[]) {
 		if (current - init >= maxTime) {
 			break;
 		}
-	}
+	}*/
 
 	cout << endl;
 	cout << "Lower bound = " << global_lb << endl;
