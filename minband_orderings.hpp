@@ -31,7 +31,8 @@ using namespace std;
 
 enum OrderType {
   MinState, MaximalPath, CutVertexGen, CutVertex, Fixed,
-  MinDegree, RootOrder, LexOrder, SpanningTree, Degree
+  MinDegree, RootOrder, LexOrder, SpanningTree, Degree,
+  FromFront,FrontBack
 };
 
 // Class representing a general ordering
@@ -125,6 +126,43 @@ private:
   void construct_ordering();
 };
 
+// From Front ordering, pos 1,2,3,4 etc
+struct FromFrontOrdering : MB_Ordering {
+
+  vector<int> v_in_layer;   // vertex at each layer
+
+  FromFrontOrdering(MinBandInst *_inst) : MB_Ordering(_inst, SpanningTree) {
+    sprintf(name, "fromfront");
+    construct_ordering();
+  }
+
+  int vertex_in_layer(BDD* bdd, int layer) {
+    assert( layer >= 0 && layer < inst->graph->n_vertices);
+    return v_in_layer[layer];
+  }
+
+private:
+  void construct_ordering();
+};
+
+// Front back  ordering, pos 1,n,2,n-1... etc
+struct FrontBackOrdering : MB_Ordering {
+
+  vector<int> v_in_layer;   // vertex at each layer
+
+  FrontBackOrdering(MinBandInst *_inst) : MB_Ordering(_inst, SpanningTree) {
+    sprintf(name, "frontback");
+    construct_ordering();
+  }
+
+  int vertex_in_layer(BDD* bdd, int layer) {
+    assert( layer >= 0 && layer < inst->graph->n_vertices);
+    return v_in_layer[layer];
+  }
+
+private:
+  void construct_ordering();
+};
 //// Vertex that it is in the least number of states - randomized!!
 //struct RandomizedMinInState : IS_Ordering {
 //

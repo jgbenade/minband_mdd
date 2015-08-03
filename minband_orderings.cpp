@@ -132,6 +132,38 @@ void DegreeOrdering::construct_ordering(){
 	}cout<<endl;
 }
 
+void FromFrontOrdering::construct_ordering(){
+	v_in_layer.clear();
+
+	//get highest degree
+	for (int i = 0; i< inst->graph->n_vertices; i++){
+		v_in_layer.push_back(i);
+	}
+/*	for (vector<int>::iterator it = v_in_layer.begin(); it!= v_in_layer.end(); ++it){
+		cout << *it;
+	}cout<<endl;*/
+}
+
+void FrontBackOrdering::construct_ordering(){
+	v_in_layer.clear();
+
+	vector<bool> inserted(inst->graph->n_vertices, false);
+
+	//get highest degree
+	for (int i = 0; i< inst->graph->n_vertices; i++){
+		if (!inserted[i]){
+			v_in_layer.push_back(i);
+			inserted[i] = true;
+		}
+		if (!inserted[inst->graph->n_vertices - i - 1]){
+			v_in_layer.push_back(inst->graph->n_vertices - i - 1);
+			inserted[inst->graph->n_vertices - i - 1] = true;
+		}
+	}
+/*	for (vector<int>::iterator it = v_in_layer.begin(); it!= v_in_layer.end(); ++it){
+			cout << *it;
+		}cout<<endl;*/
+}
 
 // minimum degree ordering
 void MinDegreeOrdering::construct_ordering() {

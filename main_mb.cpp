@@ -6,6 +6,7 @@
 #include <deque>
 #include <iostream>
 #include <vector>
+#include <bitset>
 #include "minband_instance.hpp"
 #include "minband_bdd.hpp"
 
@@ -209,7 +210,7 @@ void printSet(set<myint>& _set){
 	cout << ',';
 }
 
-void testFilter(){
+void testFilter(){/*
 	set<myint> d1,d2;
 	d1.insert(1);
 	d2.insert(2);
@@ -262,10 +263,10 @@ void testFilter(){
 	node2.printState();
 	cout << "State after filtering: " << node2.filterDomains3() << endl;
 	node2.printState();
-
+*/
 
 }
-void testStates(){
+void testStates(){/*
 	set<myint> d1,d2;
 	d1.insert(1);
 	d2.insert(2);
@@ -312,7 +313,7 @@ void testStates(){
 	state2[0].insert(33);
 	cout << "State compare "<< (state == state2)<< endl ;
 
-
+*/
 
 
 

@@ -278,9 +278,9 @@ inline int MinBandInst::calculate_Caprara_Bound(){
 			current_bound = (int)std::min(current_bound, internal_max);
 	}
 
-	cout << "Caprara_list: " ;
+	/*cout << "Caprara_list: " ;
 	for (vector<int>::const_iterator it = caprara_list.begin(); it != caprara_list.end(); ++it)
-		cout << *it << ",";
+		cout << *it << ",";*/
 
 	caprara_bound = current_bound;
 	//cout<< "Caprara bound= "<< current_bound<< endl;

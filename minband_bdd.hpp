@@ -11,6 +11,7 @@
 #include <queue>
 #include <deque>
 #include <set>
+#include <bitset>
 
 #include "minband_orderings.hpp"
 #include "minband_instance.hpp"
@@ -34,7 +35,7 @@ using namespace std;
 // -------------------------------------------------------------------
 
 struct BranchNode {
-	vector<set<myint> >		state;				// state to be explored
+	State		state;				// state to be explored
 	int   					cost;				// node cost
 	int   					relax_lb;           // upper bound obtained for the BDD where node was created
 	vector<int>				vertex;
@@ -45,7 +46,7 @@ struct BranchNode {
 	:	cost(_cost), relax_lb(0)
 	{
 		const State& state_v = _node->state;
-		for (vector<set<myint> >::const_iterator it = state_v.begin(); it != state_v.end(); ++it) {
+		for (vector<Domain >::const_iterator it = state_v.begin(); it != state_v.end(); ++it) {
 			state.push_back(*it);
 		}
 	}
@@ -53,7 +54,7 @@ struct BranchNode {
 	//
 	// Constructor from a state vector
 	//
-	BranchNode(const vector<set<myint> >& _state, double _cost)
+	BranchNode(const vector<Domain>& _state, double _cost)
 	:	state(_state), cost(_cost), relax_lb(0)
 	{
 	}
@@ -68,10 +69,11 @@ struct BranchNode {
 };
 
 inline void BranchNode::printState(){
-	for( std::vector<set<myint> >::const_iterator i = state.begin(); i != state.end(); ++i){
+	for( int i=0 ; i< state.size(); i++){
 		cout << "/";
-		for( std::set<myint>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
-			std::cout << *j ;
+		for( int j = 0; j < state.size(); j++){
+			if (state[i][j])
+				std::cout << j;
 		}
 
 	}
@@ -205,19 +207,21 @@ public:
 	// Add branching nodes to DFS queue
     void addBranchNodesDFS(vector<BranchNode*>& queue);
 
-  	int calculateCost( Node* _node);
+  	//int calculateCost( Node* _node);
   	int calculateCost_bounds(Node* _node);
-  	int calculateCost_bounds_fast(Node* _node);
-  	int calculateCost_caprara(Node* _node);
+  	//int calculateCost_bounds_fast(Node* _node);
+  	//int calculateCost_caprara(Node* _node);
   	int calculateCost_caprara_gen(Node* _node);
   	int calculateCost_caprara_fixed(Node* _node);
-  	int calculateCost_mu1(Node* node);
-  	int calculateCost_mu2(Node* _node);
-  	int calculateCost_mu2_fast(Node* _node);
-  	int calculateCost_ILP(Node* _node);
-  	double calculateCost_bounds_delta(Node* node);
+  	int calculateCost_caprara_pos(Node* _node, int _vertex);
 
-  	int filterBounds(Node* node);
+  	//int calculateCost_mu1(Node* node);
+  	int calculateCost_mu2(Node* _node);
+  	//int calculateCost_mu2_fast(Node* _node);
+  	int calculateCost_ILP(Node* _node);
+  	//double calculateCost_bounds_delta(Node* node);
+
+  	//int filterBounds(Node* node);
   	int filterBounds2(State& state);
 
   	//bool mytriplecomp (const vector<int>& a, const vector<int>& b);
