@@ -98,11 +98,11 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	int ub1 = inst->CuthillMckee();
 	cout << "Cuthill-Mckee: " << ub1 <<endl;
 
-	int ub2 = generateRestriction(inst->graph->n_vertices);
+	/*int ub2 = generateRestriction(inst->graph->n_vertices);
 	cout << "restriction "<< ub2 << endl;
-	upper_bound = MIN(upper_bound,ub2);
+	upper_bound = MIN(upper_bound,ub2);*/
 	//upper_bound = 11;
-	int lb1 = generateFakeRelaxation(-1);
+	int lb1 = generateRelaxation(-1);
 	best_lb = MAX(lb1, best_lb);
 
 	cout << "returned " << lb1 << best_ub<<endl;
@@ -113,10 +113,10 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 
 	// check if BDD is already exact
 	//Not valid for fake relaxation
-	/*isExact = branch_nodes.empty();
+	isExact = branch_nodes.empty();
 	if (isExact) {
 		return;
-	}*/
+	}
 
 	// initialize branch node pool
 	//update bounds because the higher level search repeatedly copy form the pool
@@ -401,6 +401,10 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 						else
 							cost = calculateCost_caprara_pos(node,v);
 						node->cost = MAX(node->cost, cost);
+
+						/*if (node->cost < upper_bound)
+							cost = calculateCost_caprara_gen(node)	;
+						node->cost = MAX(node->cost,cost);*/
 
 						if (node->cost < upper_bound)
 							cost = calculateCost_mu2(node)	;
