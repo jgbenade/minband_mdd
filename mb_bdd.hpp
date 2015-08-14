@@ -27,7 +27,7 @@ using namespace std;
 //unsigned char has rang 0..255
 //typedef unsigned char myint;
 typedef  unsigned char myint;
-typedef std::bitset<73> Domain;
+typedef std::bitset<10> Domain;
 typedef vector<Domain> State;
 
 //

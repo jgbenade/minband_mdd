@@ -121,10 +121,31 @@ struct mytriplecompfv {
 		return a[1] > b[1];
 	}
 };
-  	 //want to sort with smallest f_v at back
+  	 //want to sort with smallest l_v at back
 struct mytriplecomplv {
 	inline bool operator() (const vector<int>& a, const vector<int>& b) {
 		return a[2] > b[2];
+	}
+};
+struct mydoublecompincdec {
+	inline bool operator() (const vector<int>& a, const vector<int>& b) {
+		if (a[1]!=b[1])
+			return a[1] < b[1];
+		else
+			return a[2] > b[2];
+	}
+};
+struct mydoublecompincinc {
+	inline bool operator() (const vector<int>& a, const vector<int>& b) {
+		if (a[1]!=b[1])
+			return a[1] < b[1];
+		else
+			return a[2] < b[2];
+	}
+};
+struct mycompinc { // used for sorting tvect, svect based on index
+	inline bool operator() (const vector<int>& a, const vector<int>& b) {
+		return a[0] < b[0];
 	}
 };
 
@@ -169,6 +190,9 @@ public:
 			branch_nodes.clear();
 		}
 	}
+
+	// Generate fake relaxation. Mimics partial enumeration, no branching
+	int generateFakeRelaxation(const int initial_weight);
 
 	// Generate relaxation. Returns true iff relaxation is exact.
 	int generateRelaxation(const int initial_weight);
@@ -219,6 +243,8 @@ public:
   	int calculateCost_mu2(Node* _node);
   	//int calculateCost_mu2_fast(Node* _node);
   	int calculateCost_ILP(Node* _node);
+  	int calculateCost_ILP2(Node* _node);
+
   	//double calculateCost_bounds_delta(Node* node);
 
   	//int filterBounds(Node* node);
@@ -268,6 +294,8 @@ private:
     vector<vector<int> > edges_to_check;         //given the ordering, the mapped corresponding edges.
 
     std::set<myint>::iterator itlow,itup;          // used for filterbounds
+
+    vector<int> lb,ub;
 
 
 

@@ -478,8 +478,8 @@ int main(int argc, char* argv[]) {
 		if (current - init >= maxTime) {
 			break;
 		}
-	}*/
-
+	}
+*/
 	cout << endl;
 	cout << "Lower bound = " << global_lb << endl;
 	cout << "Upper bound = " << global_ub << endl;

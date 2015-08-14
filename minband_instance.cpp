@@ -119,7 +119,10 @@ void Graph::read_dimacs(const char* filename) {
 		vertex_neighbourhood.push_back(make_layered_graph(i));
 	}
 
+	//print();
 	calculate_pairwise_dist();
+
+
 }
 
 void Graph::calculate_pairwise_dist(){
@@ -132,7 +135,7 @@ void Graph::calculate_pairwise_dist(){
 	       on shortest paths considering no intermediate vertex. */
 	for (i = 0; i < n_vertices; i++)
 		for (j = 0; j < n_vertices; j++){
-			if (adj_m[i][j]>0 or i==j)
+			if (adj_m[i][j] > 0 or i==j)
 				dist[i][j] = adj_m[i][j];
 			else
 				dist[i][j] = n_vertices*n_vertices;
