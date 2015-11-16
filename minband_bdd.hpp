@@ -193,6 +193,16 @@ public:
 
 	// Generate fake relaxation. Mimics partial enumeration, no branching
 	int generateFakeRelaxation(const int initial_weight);
+	int generateFake2Relaxation(const int initial_weight);
+
+	// Runs the iterative bounds strengthening, uses special merging/relaxation algorithm
+	int iterativeBoundStrengthening();
+	//relax with different retur values
+	int BSRelaxation(int _target_lb, int _width);
+	// Merge layer
+	void mergeLayerIBS(int layer, vector<Node*> &nodes_layer, int first, int width);
+
+
 
 	// Generate relaxation. Returns true iff relaxation is exact.
 	int generateRelaxation(const int initial_weight);
@@ -245,6 +255,20 @@ public:
   	int calculateCost_ILP(Node* _node);
   	int calculateCost_ILP2(Node* _node);
 
+
+  	int calcDiffElement(State& stateCluster, State& stateNode);
+  	vector<vector<int> > clusterFootprint(int layer, vector<Node*> &nodes_layer);
+  	void mergeCluster(int layer, vector<Node*> &nodes_layer);
+
+  	////////////////////////////////////////////////////////////////////////
+  	/* Functions for machine learning project */
+  	vector<vector<int> > MinBandBDD::kMeansClusters(int layer, vector<Node*> &nodes_layer);
+  	vector<vector<double> > MinBandBDD::learnDistanceMatrix(int layer, vector<Node*> &nodes_layer);
+  	vector<vector<double> > MinBandBDD::getSimilarity(int layer, vector<Node*> &nodes_layer, double p=0.01);
+  	/* End functions for machine learning  project */
+  	///////////////////////////////////////////////////////////////////////
+
+
   	//double calculateCost_bounds_delta(Node* node);
 
   	//int filterBounds(Node* node);
@@ -256,6 +280,8 @@ public:
 	MinBandInst* 			inst;				// independent set instance
 	vector<int> 			vertex_in_layer;  	// which vertex a layer corresponds to
 	Node*					root_node;		  	// relaxation root node
+
+    int 					nof_nodes_explored; //used to compare IBS to the typical branching scheme
 
 private:
 
@@ -296,6 +322,8 @@ private:
     std::set<myint>::iterator itlow,itup;          // used for filterbounds
 
     vector<int> lb,ub;
+
+
 
 
 

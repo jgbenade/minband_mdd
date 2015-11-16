@@ -338,7 +338,7 @@ int main(int argc, char* argv[]) {
 		cout << endl;
 		exit(1);
 	}
-	cout << "Current data structure ssupports up to 2^"<< sizeof(myint)*8 << " vertices."<<endl;
+	//cout << "Current data structure ssupports up to 2^"<< sizeof(myint)*8 << " vertices."<<endl;
 	// read input
 	int root_max_width = atoi(argv[2]);
 	int max_width = atoi(argv[3]);
@@ -503,6 +503,7 @@ int main(int argc, char* argv[]) {
 	statfile << "\t" << global_ub;
 	statfile << "\t" << ((double)(global_ub - global_lb) / (double)global_ub)*100.0;
 	statfile << "\t" << totalTime;
+	//statfile << "\t" << minband_bdd.nof_nodes_explored;
 	statfile << endl;
 	statfile.close();
 	return 0;

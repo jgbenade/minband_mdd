@@ -39,7 +39,8 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	  isExact(false),
 	  isUBUpdated(false),
 	  initialPosPool(0),
-	  variable_width(false)
+	  variable_width(false),
+	  nof_nodes_explored(0)
 {
   //assert( _ddWidth == INF_WIDTH || _ddWidth > 0 );
 
@@ -93,31 +94,33 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 
 	best_ub = inst->graph->n_vertices;
 	upper_bound = inst->graph->n_vertices;
-
-	lower_bound = -1;
+//**
+	lower_bound = best_lb;
 	int ub1 = inst->CuthillMckee();
 	cout << "Cuthill-Mckee: " << ub1 <<endl;
+	upper_bound = MIN(upper_bound,ub1);
 
 	/*int ub2 = generateRestriction(inst->graph->n_vertices);
 	cout << "restriction "<< ub2 << endl;
 	upper_bound = MIN(upper_bound,ub2);*/
-	//upper_bound = 11;
+	//upper_bound = ;
+	//int lb1 = iterativeBoundStrengthening();
 	int lb1 = generateRelaxation(-1);
 	best_lb = MAX(lb1, best_lb);
 
-	cout << "returned " << lb1 << best_ub<<endl;
+	//cout << "returned " << lb1 << best_lb<<endl;
 	//int ub1 = generateRestriction(inst->graph->n_vertices);
 
 	cout << " ### Lower bound: " << lower_bound << endl;
 	cout << " ### Upper bound: " << upper_bound << endl;
+	cout << " Number of nodes: " << nof_nodes_explored<< endl;
 
 	// check if BDD is already exact
-	//Not valid for fake relaxation
+	//Not valid for fake relaxation or IBS
 	isExact = branch_nodes.empty();
 	if (isExact) {
 		return;
 	}
-
 	// initialize branch node pool
 	//update bounds because the higher level search repeatedly copy form the pool
 	for (vector<BranchNode*>::iterator st = branch_nodes.begin(); st != branch_nodes.end(); ++st) {
@@ -143,6 +146,443 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 
 }
 
+// This repeatedly calls a special version of generate relaxation
+// with false upper bounds to try to improve the existing lower bound.
+// Equivalent to only branching on the lowest cost nodes in a tree,
+// improving lower bound and then repeating.
+int MinBandBDD::iterativeBoundStrengthening(){
+	cout << "Iterative bounds\n";
+	int old_upperbound = upper_bound;
+	int phi = lower_bound ;
+	int width = maxWidth;
+
+	int return_val = -1;
+
+	//ret_val 0 : merged, 1 exact, move ub, -1:move lb
+	while (phi < upper_bound and return_val < 0){
+
+		return_val = BSRelaxation(phi, width);
+
+		cout << "\n IBS --- " <<  phi << ": " << return_val << " , ub= " << upper_bound <<endl;
+
+		if (return_val == -1){
+			//no node on the last layer with cost <= phi
+			phi++;
+		}
+		if (return_val == 0 ){
+			//merged node on the last layer with cost = phi., increase width?
+		}
+	}
+	cout << "\n FIBS --- " <<  phi << ": "  << " , ub= " << upper_bound;
+	//if we stopped because the next value would have been upperboudn
+
+	lower_bound =phi;
+	best_lb = phi;
+	return phi;
+
+}
+
+//bound strengthening relaxation, we itaritively increase the upper bound to only
+//examin nodes as necessary like described in the iterative bound strengthening.
+int MinBandBDD::BSRelaxation(int _target_lb, int _width){
+	vector<int> orig_vertex_in_layer(vertex_in_layer.begin(), vertex_in_layer.end());
+
+		// Initialize internal structures for vertex ordering
+		//vertex_in_layer.clear();
+		if (var_ordering->order_type == MinState) {
+			for (vector<int>::iterator v = active_vertices.begin(); v != active_vertices.end(); ++v) {
+				in_state_counter[*v] = 1;
+			}
+		} else if ( var_ordering->order_type == RootOrder ) {
+			ComparatorAuxIntVectorDescending comp(root_ordering);
+			sort( active_vertices.begin(), active_vertices.end(), comp );
+
+		} else if( var_ordering->order_type == LexOrder ) {
+			sort( active_vertices.begin(), active_vertices.end() );
+
+		} else if( var_ordering->order_type == SpanningTree ) {
+			//do nothing
+		} else if( var_ordering->order_type == Degree ) {
+			//do nothing
+		} else if( var_ordering->order_type == FromFront ) {
+			//do nothing
+		} else if( var_ordering->order_type == FrontBack ) {
+			//do nothing
+		}
+		else {
+			cout << "Order undefined" << endl;
+			exit(0);
+		}
+
+		//cout<< "Starting relaxation :: ("<< lower_bound << ") :: ["<< maxWidth << "] ::";
+		// ---------------------------------------------------------------------
+		// 2. Relaxation
+		// ---------------------------------------------------------------------
+
+		// Initialize pool for root node
+
+		// create root node state
+
+		//imake sure we have the right number of things in vertex_in_layer
+		// we usually have one extra set in the state
+		while (vertex_in_layer.size() >= active_state.size()and vertex_in_layer.size() >0)
+		{
+			vertex_in_layer.pop_back();
+		}
+
+		//if this is the very first node active_state is empty so we have to put something in there before we copy it.
+		/*if (active_state.size() < 1 ){
+			vector<myint> full_domain;
+			for (myint i=0;i <= (int)(std::ceil(inst->graph->n_vertices/2)); i++) full_domain.insert(i);
+			active_state.push_back(full_domain);
+		}*/
+
+		//initialise all feasible root state //TODO copy active state
+		State root_state;
+		Domain fulldomain;
+		if (active_state.size() < fulldomain.size()	){
+			for(int i =0; i<fulldomain.size(); i++){
+				Domain domain = ~fulldomain;
+				root_state.push_back(domain);
+			}
+		}
+		else{
+			root_state = active_state;
+		}
+
+
+
+		//print the initial state just to check
+		/*for( std::vector<set<myint> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
+			for( std::set<myint>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
+				std::cout << *j ;
+			}
+			cout << ",";
+		}*/
+
+		//cout<< "creating initial root : activestate/vil size " << active_state.size() << vertex_in_layer.size()<<endl;
+
+		// create initial BDD node
+		Node* initial_node = new Node(root_state, 0, true); // initial_node->printState();
+		node_pool.clear();
+		node_pool[ &(root_state) ] = initial_node;
+		root_node = initial_node;
+
+		BDDNodePool::iterator node_it, existing_node_it;
+		Node* node;
+		bool exactNodeInPool = true; // as soon as we have no more exact nodes left we can jump out asd start checking out children
+
+		// relaxation control variables
+		int current_vertex;
+		//TODO this only allows for root, figure something else out.
+		//maybe give branchnode a layer, copy info over when creating rootnode.
+		int layer = 0 ;
+		// so for the first vertex we have a 0, last layer n-1, corresponds to indices in vertex in layer
+		const int num_active_vertices = inst->graph->n_vertices - layer;
+		//here active vertices are vertices that dont have domains yet
+
+		//Todo enable/disable early breaks
+		while ( layer < inst->graph->n_vertices/* and exactNodeInPool*/ ) {
+			//cout << "layer " << layer << " - ";
+			exactNodeInPool = false;
+			// ==================================
+			// 1. Vertex and BDD node selection
+			// ==================================
+
+			// select next vertex and update active vertex list
+			if (var_ordering->order_type == MinState) {
+				current_vertex = choose_next_vertex_min_size_next_layer();
+			} else if ( var_ordering->order_type == SpanningTree ) {
+				current_vertex = var_ordering->vertex_in_layer(new BDD(), layer);
+				active_vertices.erase(std::remove(active_vertices.begin(), active_vertices.end(), current_vertex), active_vertices.end());
+			}else if ( var_ordering->order_type == Degree ) {
+				BDD* temp = new BDD();
+				current_vertex = var_ordering->vertex_in_layer(temp, layer);
+				active_vertices.erase(std::remove(active_vertices.begin(), active_vertices.end(), current_vertex), active_vertices.end());
+				delete temp;
+			}else if ( var_ordering->order_type == FrontBack ) {
+				BDD* temp = new BDD();
+				current_vertex = var_ordering->vertex_in_layer(temp, layer);
+				active_vertices.erase(std::remove(active_vertices.begin(), active_vertices.end(), current_vertex), active_vertices.end());
+				delete temp;
+			}else if ( var_ordering->order_type == FromFront ) {
+				BDD* temp = new BDD();
+				current_vertex = var_ordering->vertex_in_layer(temp, layer);
+				active_vertices.erase(std::remove(active_vertices.begin(), active_vertices.end(), current_vertex), active_vertices.end());
+				delete temp;
+			}else if ( var_ordering->order_type == RootOrder ) {
+				current_vertex = active_vertices.back();
+				active_vertices.pop_back();
+			} else if (var_ordering->order_type == LexOrder) {
+				current_vertex = active_vertices.back();
+				active_vertices.pop_back();
+
+			} else {
+				exit(0);
+			}
+			//cout << "Size of vertex_in_layer" << vertex_in_layer.size()<< endl;
+			vertex_in_layer.push_back( current_vertex );
+			assert( current_vertex != -1 );
+
+			for (vector<Node*>::iterator nit = nodes_layer.begin(); nit != nodes_layer.end(); ++nit)	delete *nit;
+			nodes_layer.clear();
+			//nodes_layer.resize(node_pool.size());
+			//cout << "Nodes_pool size " << node_pool.size();
+
+			node_it = node_pool.begin();
+			int min_cost_pool = inst->graph->n_vertices;
+
+			while (node_it != node_pool.end())	{
+				//nodes_layer[node_pool_counter++] = node_it->second;
+				if ((node_it->second->exact)) exactNodeInPool = true;
+
+				nodes_layer.push_back(node_it->second);
+				if (min_cost_pool > node_it->second->cost)
+					min_cost_pool = node_it->second->cost;
+
+				node_pool.erase(node_it++);
+			}
+
+			lower_bound = MAX(lower_bound, min_cost_pool);
+
+			//PRINT LAYER
+			cout << "Layer " << layer << " - vertex: " << current_vertex;
+			cout << " - pool: " << node_pool.size();
+			cout << " - before merge: " << nodes_layer.size();
+			cout << " - total: " << node_pool.size() + nodes_layer.size();
+
+			// ==================================
+			// 2. Node merging
+			// ==================================
+			//cout<< "width of layer " << (int)nodes_layer.size() << " max " << maxWidth;
+
+			//merge if larger than the current width, indep of general width.
+			// sor tthe nodes, count the ones with tthe current target cost,
+			// only merge if these are too many
+			if( maxWidth != INF && (int)nodes_layer.size() > _width ) {
+				sort(nodes_layer.begin(), nodes_layer.end(), CompareNodesCostDelta());
+				int first = -1;
+				for (int i=0; i< nodes_layer.size(); i++)
+					if (nodes_layer[i]->cost < _target_lb)
+						first = i;
+				int nof_nodes_at_target = nodes_layer.size() - first - 1;
+				cout << "merging : " << first << "  " << nof_nodes_at_target << endl;
+
+				if (nof_nodes_at_target > _width)
+					mergeLayerIBS(layer, nodes_layer, first, _width);
+			}
+			cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;		if (!exactNodeInPool) cout << "x"; cout << endl;
+			// ==================================
+			// 3. Branching
+			// ==================================
+
+			Node* branch_node;
+			Domain domain;
+
+			for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end(); ++it) {
+				if ((*it)->cost == _target_lb)
+					nof_nodes_explored++;
+
+				branch_node = (*it);
+				//cout<< "a"<<endl;
+
+				//this only filters the domains that we are about to branch on
+				filterBounds2(branch_node->state);
+
+				//cout<<"b"<< (*(--branch_node->state.end())).size() <<endl;
+				//cout << "Branching on node "  ;
+				//branch_node->printState();
+
+				//domains should already be filtered once we get  here
+				//remove most recent domain, we are now branching on it
+				// definition can be moved outside, seems to be slower??
+				Domain branch_domain = branch_node->state[vertex_in_layer[layer]];
+				//cout << branch_domain<< endl;
+				for (int v = 0; v< inst->graph->n_vertices; v++){
+					if (branch_domain[v]){
+						//domain.reset();
+						//domain.set(v);
+
+						node = new Node(branch_node->state,
+								branch_node->cost ,
+								branch_node->exact);
+
+						//the one we are branching on
+						//cout << domain << "," << node->state[layer];
+						//node->state[layer] &= domain;
+						node->state[vertex_in_layer[layer]].reset();
+						node->state[vertex_in_layer[layer]].set(v);
+						//cout << "," << node->state[layer];
+
+						if (node->filterDomains5(vertex_in_layer[layer]) < 0|| filterBounds2(node->state) < 0 ){
+							//if (  node->filterDomains5() < 0){
+							delete node;
+						}
+						else{
+							int cost=0;
+							//	node->cost = MAX(node->cost, calculateCost_caprara_fixed(node));
+							if (vertex_in_layer[vertex_in_layer.size()-1]== 0 or vertex_in_layer[vertex_in_layer.size()-1]== inst->graph->n_vertices-1)
+								node->cost = MAX(node->cost, inst->caprara_list[v]);
+							else
+								cost = calculateCost_caprara_pos(node, v);
+							node->cost = MAX(node->cost, cost);
+
+							/*if (node->cost < _target_lb + 1  and node->cost < upper_bound)
+								cost = calculateCost_caprara_gen(node)	;
+							node->cost = MAX(node->cost,cost);*/
+
+							if (node->cost < _target_lb + 1 && node->cost < upper_bound)
+								cost = calculateCost_mu2(node)	;
+							node->cost = MAX(node->cost,cost);
+
+							if (node->exact and node->cost < _target_lb + 1  && node->cost < upper_bound)
+								cost = calculateCost_ILP2(node);
+							node->cost = MAX(node->cost, cost );
+
+
+
+							if (node->cost <  _target_lb + 1 && node->cost < upper_bound) {
+								//cout << "c" << node->cost << " ";
+								// Equivalence test: check if node is in list
+								existing_node_it = node_pool.find( &(node->state) );
+								if (existing_node_it != node_pool.end()) {
+									cout <<" Matched, merging";
+									// node already exists in the pool: update node match
+									merge(node, existing_node_it->second);
+									node = existing_node_it->second;
+
+								} else {
+									//cout << "inserting" << endl;
+									node_pool[ &(node->state)] = node;
+								}
+							} else { // cost > upperbounde
+								delete node;
+							}
+						}
+					}
+				}
+				//for every value in the current vertex's domain (the last domain) do
+				// replace that domain with a singleon, do alldiff filtering
+				//create a new node with filtered domains, getcost (best possible cost)
+				// if cost < best_ub (from an existing solution)
+				// 		add to nodepool, merge if existing or just add
+				//for(vector<int>::cons)
+
+			}
+			//delete branch_node;
+
+			// if the number of nodes in the pool is empty, then we do not need to explore this BDD further
+			// since there are no better feasible solutions that can be generated from here
+			if (node_pool.empty()) {
+				cout << "deleting nodes from branch_pool";
+
+				while ((int)branch_nodes.size() > initialPosPool) {
+					delete branch_nodes.back();
+					branch_nodes.pop_back();
+				}
+
+				// clean branching pool
+				for (vector<BranchNode*>::iterator it = branch_nodes.begin(); it != branch_nodes.end(); ++it) {
+					delete (*it);
+				}
+				branch_nodes.clear();
+
+				// reset internal parameters
+				isExact = false;
+
+				// no new lower bound was generated
+				vertex_in_layer = orig_vertex_in_layer;
+				return -1;
+			}
+
+			// go to next layer
+			layer++;
+		}
+
+		// take info from terminal node
+		assert( node_pool.size() > 0 );
+
+		//TODO we have to do the terminal node slightly differently
+		/*const Node* terminal = node_pool.begin()->second;
+
+		upper_bound = terminal->cost;
+		isExact = terminal->exact;
+
+		delete terminal;*/
+
+
+		int min_cost_pool = inst->graph->n_vertices;
+		int min_exact_cost = inst->graph->n_vertices;
+		//cout<< node_pool.size() << " nodes in node_pool after run"<< endl;
+
+		//cout << node_pool.size();
+		node_it = node_pool.begin();
+		bool hasExact = false;
+		int count_low =0;
+		int count_exact = 0;
+
+		//assume we return 0 (we made it to the last layer) or 1 (exact node)
+		int return_val = 0;
+
+		while (node_it != node_pool.end())	{
+
+			//node_it->second->printState();
+
+			if (node_it->second->exact){
+				hasExact = true;
+				//for the inexact cost calculations we need to double check
+				cout << "a" << node_it->second->cost << " ";
+
+				int cost2 = calculateCost_mu2(node_it->second);
+				node_it->second->cost = MAX(node_it->second->cost, cost2);
+				cout << "b" << node_it->second->cost << " ";
+				if (node_it->second->cost < upper_bound	){
+					upper_bound = node_it->second->cost;
+
+				}
+				count_exact++;
+
+				if (node_it->second->cost < _target_lb + 1)
+					return_val =  1;
+
+			}
+
+			if (node_it->second-> cost < min_cost_pool){
+				min_cost_pool = MIN(min_cost_pool, node_it->second->cost);
+				count_low = 1;
+
+			}else if (node_it->second-> cost == min_cost_pool)
+				count_low++;
+			delete	 node_it->second;
+			node_it++;
+
+		}
+		cout <<endl << "at lb: "<< count_low << " / " << node_pool.size() << "\t Exact: " << count_exact << " / " << node_pool.size()<< endl <<branch_nodes.size( ) << endl;
+		//lower_bound = MAX(lower_bound, min_cost_pool);
+
+
+
+		// if last node is exact, BDD is exact: update lower bound
+		if (hasExact) {
+			updateLocalUB(upper_bound, true);
+		}
+
+		//TODO update branch node pool: we get the lower bound from the node pool, be careful about what you update
+		for (vector<BranchNode*>::iterator st = branch_nodes.begin(); st != branch_nodes.end(); ++st) {
+			(*st)->relax_lb = MAX(lower_bound, (*st)->cost);
+			(*st)->cost = MAX((*st)->cost, min_cost_pool);
+				//(*st)->relax_lb = MAX(	lower_bound,(*st)->cost + (*st)->state.size());
+		}
+
+		//best_lb = MAX(best_lb, lower_bound);
+		//vertex_in_layer = orig_vertex_in_layer;
+		for (vector<Node*>::iterator nit = nodes_layer.begin(); nit != nodes_layer.end(); ++nit)	delete *nit;
+		nodes_layer.clear();
+		node_pool.clear();
+
+		return return_val;
+
+}
 
 //
 // Generate MDD relaxation. Returns lower (upper for is) bound.
@@ -346,7 +786,8 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		// ==================================
 		//cout<< "width of layer " << (int)nodes_layer.size() << " max " << maxWidth;
 		if( maxWidth != INF && (int)nodes_layer.size() > maxWidth ) {
-			mergeLayer(layer, nodes_layer);
+			mergeCluster(layer, nodes_layer);
+			//mergeLayer(layer, nodes_layer);
 		}
 		cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;		if (!exactNodeInPool) cout << "x"; cout << endl;
 		// ==================================
@@ -357,6 +798,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		Domain domain;
 
 		for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end(); ++it) {
+			nof_nodes_explored++;
 
 			branch_node = (*it);
 			//cout<< "a"<<endl;
@@ -371,7 +813,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 			//domains should already be filtered once we get  here
 			//remove most recent domain, we are now branching on it
 			// definition can be moved outside, seems to be slower??
-			Domain branch_domain = branch_node->state[layer];
+			Domain branch_domain = branch_node->state[vertex_in_layer[layer]];
 			//cout << branch_domain<< endl;
 			for (int v = 0; v< inst->graph->n_vertices; v++){
 				if (branch_domain[v]){
@@ -385,11 +827,11 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 					//the one we are branching on
 					//cout << domain << "," << node->state[layer];
 					//node->state[layer] &= domain;
-					node->state[layer].reset();
-					node->state[layer].set(v);
+					node->state[vertex_in_layer[layer]].reset();
+					node->state[vertex_in_layer[layer]].set(v);
 					//cout << "," << node->state[layer];
 
-					if (node->filterDomains5(layer) < 0|| filterBounds2(node->state) < 0 ){
+					if (node->filterDomains5(vertex_in_layer[layer]) < 0|| filterBounds2(node->state) < 0 ){
 						//if (  node->filterDomains5() < 0){
 						delete node;
 					}
@@ -399,20 +841,20 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 						if (vertex_in_layer[vertex_in_layer.size()-1]== 0 or vertex_in_layer[vertex_in_layer.size()-1]== inst->graph->n_vertices-1)
 							node->cost = MAX(node->cost, inst->caprara_list[v]);
 						else
-							cost = calculateCost_caprara_pos(node,v);
+							cost = calculateCost_caprara_pos(node, v);
 						node->cost = MAX(node->cost, cost);
 
 						/*if (node->cost < upper_bound)
 							cost = calculateCost_caprara_gen(node)	;
 						node->cost = MAX(node->cost,cost);*/
 
-						if (node->cost < upper_bound)
+						/*if (node->cost < upper_bound)
 							cost = calculateCost_mu2(node)	;
-						node->cost = MAX(node->cost,cost);
+						node->cost = MAX(node->cost,cost);*/
 
-						/*if (node->exact and node->cost < upper_bound)
+						if (node->exact and node->cost < upper_bound)
 							cost = calculateCost_ILP2(node);
-						node->cost = MAX(node->cost, cost );*/
+						node->cost = MAX(node->cost, cost );
 
 						if (node->cost < upper_bound) {
 							// Equivalence test: check if node is in list
@@ -496,41 +938,41 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 
 	while (node_it != node_pool.end())	{
 
-			//node_it->second->printState();
+		//node_it->second->printState();
 
-			if (node_it->second->exact){
-				hasExact = true;
-				//for the inexact cost calculations we need to double check
-				node_it->second->cost = MAX(node_it->second->cost, calculateCost_bounds(node_it->second));
-				//cout << "a" << node_it->second->cost << calculateCost_bounds(node_it->second);
-				if (node_it->second->cost < upper_bound	){
-					upper_bound = node_it->second->cost;
-					//best_ub_node->state = State(node_it->second->state);
+		if (node_it->second->exact){
+			hasExact = true;
+			//for the inexact cost calculations we need to double check
+			node_it->second->cost = MAX(node_it->second->cost, calculateCost_bounds(node_it->second));
+			//cout << "a" << node_it->second->cost << calculateCost_bounds(node_it->second);
+			if (node_it->second->cost < upper_bound	){
+				upper_bound = node_it->second->cost;
+				//best_ub_node->state = State(node_it->second->state);
 
-					//print ordering
-					for (int pos = 0; pos < inst->graph->n_vertices; pos++){
-						for  (int v = 0; v< inst->graph->n_vertices; v++)
-							if (node_it->second->state[pos][v])	cout << v << ",";
-					}cout << ": " << node_it->second->cost <<  endl;
-					//
-				}
-				count_exact++;
-
+				//print ordering
+				/*for (int pos = 0; pos < inst->graph->n_vertices; pos++){
+					for  (int v = 0; v< inst->graph->n_vertices; v++)
+						if (node_it->second->state[pos][v])	cout << v << ",";
+				}cout << ": " << node_it->second->cost <<  endl;*/
+				//
 			}
+			count_exact++;
 
-			if (node_it->second-> cost < min_cost_pool){
-				min_cost_pool = MIN(min_cost_pool, node_it->second->cost);
-				count_low = 1;
+		}
 
-			}else if (node_it->second-> cost == min_cost_pool)
-				count_low++;
+		if (node_it->second-> cost < min_cost_pool){
+			min_cost_pool = MIN(min_cost_pool, node_it->second->cost);
+			count_low = 1;
 
-			//cout << "n" << node_it->second->cost<< "m"<<min_cost_pool;
-			/*if (min_cost_pool > node_it->second->cost){
+		}else if (node_it->second-> cost == min_cost_pool)
+			count_low++;
+
+		//cout << "n" << node_it->second->cost<< "m"<<min_cost_pool;
+		/*if (min_cost_pool > node_it->second->cost){
 				min_cost_pool = node_it->second->cost;
 			}*/
-			delete	 node_it->second;
-			node_it++;
+		delete	 node_it->second;
+		node_it++;
 	}
 	cout <<endl << "at lb: "<< count_low << " / " << node_pool.size() << "\t Exact: " << count_exact << " / " << node_pool.size()<< endl <<branch_nodes.size( ) << endl;
 	lower_bound = MAX(lower_bound, min_cost_pool);
@@ -735,6 +1177,414 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 		} else if (var_ordering->order_type == LexOrder) {
 			current_vertex = active_vertices.back();
 			active_vertices.pop_back();
+		} else {
+			exit(0);
+		}
+		//cout << "Size of vertex_in_layer" << vertex_in_layer.size()<< endl;
+		vertex_in_layer.push_back( current_vertex );
+		assert( current_vertex != -1 );
+
+		for (vector<Node*>::iterator nit = nodes_layer.begin(); nit != nodes_layer.end(); ++nit)	delete *nit;
+		nodes_layer.clear();
+
+		//nodes_layer.resize(node_pool.size());
+		//cout << "Nodes_pool size " << node_pool.size();
+
+		node_it = node_pool.begin();
+		int min_cost_pool = inst->graph->n_vertices;
+
+		while (node_it != node_pool.end())	{
+			//nodes_layer[node_pool_counter++] = node_it->second;
+			if ((node_it->second->exact)) exactNodeInPool = true;
+
+			nodes_layer.push_back(node_it->second);
+			if (min_cost_pool > node_it->second->cost)
+				min_cost_pool = node_it->second->cost;
+
+			node_pool.erase(node_it++);
+		}
+
+		//here we look at all the nodes on the new layer, and the
+		//lowest cost among all higher nodes that were not branched on
+		lower_bound = MAX(lower_bound, MIN(min_cost_pool, lowest_unbranched) );
+
+
+		//PRINT LAYER
+		cout << "Layer " << layer << " - vertex: " << current_vertex;
+		cout << " - pool: " << node_pool.size();
+		cout << " - before merge: " << nodes_layer.size();
+		cout << " - total: " << node_pool.size() + nodes_layer.size();
+
+		// ==================================
+		// 2. Node merging
+		// ==================================
+		//cout<< "width of layer " << (int)nodes_layer.size() << " max " << maxWidth;
+
+		//instead of merging we just sort the nodes here.
+		if( maxWidth != INF && (int)nodes_layer.size() > maxWidth-1 ) {
+			//mergeLayer(layer, nodes_layer);
+			sort(nodes_layer.begin(), nodes_layer.end(), CompareNodesCostDelta());
+			lowest_cost.push_back(nodes_layer[maxWidth-1]->cost);
+			lowest_unbranched = MIN(lowest_unbranched, nodes_layer[maxWidth-1]->cost);
+			cout << " LU="<<lowest_unbranched<<  nodes_layer[maxWidth-1]->cost  << endl;
+			isExact = false;
+		}
+		cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;		if (!exactNodeInPool) cout << "x"; cout << " " << lowest_unbranched;  cout << endl;
+		// ==================================
+		// 3. Branching
+		// ==================================
+
+		lower_bound = MAX(lower_bound, MIN(min_cost_pool, lowest_unbranched));
+
+
+		Node* branch_node;
+		Domain domain;
+
+		//only on the first few, the rest would have been merged and are now ignored
+		for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end() && it != nodes_layer.begin()+ maxWidth-1 ; ++it) {
+
+			branch_node = (*it);
+
+
+			//this only filters the domains that we are about to branch on
+			filterBounds2(branch_node->state);
+
+			//domains should already be filtered once we get  here
+			//remove most recent domain, we are now branching on it
+			// definition can be moved outside, seems to be slower??
+			Domain branch_domain = branch_node->state[vertex_in_layer[layer]];
+			//cout << branch_domain<< endl;
+			for (int v = 0; v< inst->graph->n_vertices; v++){
+				if (branch_domain[v]){
+					//domain.reset();
+					//domain.set(v);
+
+					node = new Node(branch_node->state,
+							branch_node->cost ,
+							branch_node->exact);
+
+					//the one we are branching on
+					//cout << domain << "," << node->state[layer];
+					//node->state[layer] &= domain;
+					node->state[vertex_in_layer[layer]].reset();
+					node->state[vertex_in_layer[layer]].set(v);
+					//cout << "," << node->state[layer];
+
+					if (node->filterDomains5(vertex_in_layer[layer]) < 0|| filterBounds2(node->state) < 0 ){
+						//if (  node->filterDomains5() < 0){
+						delete node;
+					}
+					else{
+						int cost=0;
+						//	node->cost = MAX(node->cost, calculateCost_caprara_fixed(node));
+						if (vertex_in_layer[vertex_in_layer.size()-1]== 0 or vertex_in_layer[vertex_in_layer.size()-1]== inst->graph->n_vertices-1)
+							node->cost = MAX(node->cost, inst->caprara_list[v]);
+						else
+							cost = calculateCost_caprara_pos(node,v);
+						node->cost = MAX(node->cost, cost);
+
+						if (node->cost < upper_bound)
+							cost = calculateCost_mu2(node)	;
+						node->cost = MAX(node->cost,cost);
+
+						//cgen cost
+						/*if (node->cost < upper_bound)
+							cost = calculateCost_caprara_gen(node)	;
+						node->cost = MAX(node->cost,cost);*/
+
+						//ilp cost
+
+						if (node->exact and node->cost < upper_bound)
+							cost = calculateCost_ILP2(node);
+						node->cost = MAX(node->cost, cost );
+
+						if (node->cost < upper_bound) {
+							// Equivalence test: check if node is in list
+							existing_node_it = node_pool.find( &(node->state) );
+							if (existing_node_it != node_pool.end()) {
+								cout <<" Matched, merging";
+								// node already exists in the pool: update node match
+								merge(node, existing_node_it->second);
+								node = existing_node_it->second;
+
+							} else {
+								//cout << "inserting" << endl;
+								node_pool[ &(node->state)] = node;
+							}
+						} else { // cost > upperbounde
+							delete node;
+						}
+					}
+				}
+			}
+		}
+		// if the number of nodes in the pool is empty, then we do not need to explore this BDD further
+		// since there are no better feasible solutions that can be generated from here
+		if (node_pool.empty()) {
+			cout << "deleting nodes from branch_pool";
+
+			while ((int)branch_nodes.size() > initialPosPool) {
+				delete branch_nodes.back();
+				branch_nodes.pop_back();
+			}
+
+			// clean branching pool
+			for (vector<BranchNode*>::iterator it = branch_nodes.begin(); it != branch_nodes.end(); ++it) {
+				delete (*it);
+			}
+			branch_nodes.clear();
+
+			// reset internal parameters
+			isExact = false;
+
+			// no new lower bound was generated
+			vertex_in_layer = orig_vertex_in_layer;
+
+			cout<<"lowest_cost " ; for (int i =0; i< lowest_cost.size(); i++) cout << lowest_cost[i] << ","; cout << endl;
+
+			if (lowest_cost.size() > 0 ){
+				cout << endl << lowest_unbranched << endl;
+				return MIN(upper_bound, lowest_unbranched)	;
+			}
+			else{
+				// Exact, never ignored nodes, return upper bound
+				cout << "HI";
+				return upper_bound;
+			}
+		}
+
+		// go to next layer
+		layer++;
+	}
+
+	// take info from terminal node
+	assert( node_pool.size() > 0 );
+
+	int min_cost_pool = inst->graph->n_vertices;
+	int min_exact_cost = inst->graph->n_vertices;
+	//cout<< node_pool.size() << " nodes in node_pool after run"<< endl;
+
+	//cout << node_pool.size();
+	node_it = node_pool.begin();
+	bool hasExact = false;
+	int count_low =0;
+	int count_exact = 0;
+
+
+	while (node_it != node_pool.end())	{
+			cout << node_it->second->cost;
+			//node_it->second->printState();
+
+			if (node_it->second->exact){
+				hasExact = true;
+				//for the inexact cost calculations we need to double check
+				node_it->second->cost = MAX(node_it->second->cost, calculateCost_bounds(node_it->second));
+				//cout << "a" << node_it->second->cost << calculateCost_bounds(node_it->second);
+				if (node_it->second->cost < upper_bound	){
+					upper_bound = node_it->second->cost;
+					//best_ub_node->state = State(node_it->second->state);
+
+					//print ordering
+					for (int pos = 0; pos < inst->graph->n_vertices; pos++){
+						for  (int v = 0; v< inst->graph->n_vertices; v++)
+							if (node_it->second->state[pos][v])	cout << v << ",";
+					}cout << ": " << node_it->second->cost <<  endl;
+					//
+				}
+				count_exact++;
+			}
+			cout <<"X"<< node_it->second->cost;
+
+
+			if (node_it->second-> cost < min_cost_pool){
+				min_cost_pool = MIN(min_cost_pool, node_it->second->cost);
+				count_low = 1;
+
+			}else if (node_it->second-> cost == min_cost_pool)
+				count_low++;
+
+			delete	 node_it->second;
+			node_it++;
+	}
+	cout <<endl << "at lb: "<< count_low << " / " << node_pool.size() << "\t Exact: " << count_exact << " / " << node_pool.size()<< endl <<branch_nodes.size( ) << endl;
+	cout << lower_bound <<  min_cost_pool << " " << lowest_unbranched <<endl;
+	lower_bound = MAX(lower_bound, MIN(min_cost_pool, lowest_unbranched));
+	lower_bound = MIN(lower_bound, upper_bound);
+
+	// if last node is exact, BDD is exact: update lower bound
+	if (hasExact) {
+		updateLocalUB(upper_bound, true);
+	}
+
+	//TODO update branch node pool: we get the lower bound from the node pool, be careful about what you update
+	for (vector<BranchNode*>::iterator st = branch_nodes.begin(); st != branch_nodes.end(); ++st) {
+		(*st)->relax_lb = MAX(lower_bound, (*st)->cost);
+		(*st)->cost = MAX((*st)->cost, min_cost_pool);
+			//(*st)->relax_lb = MAX(	lower_bound,(*st)->cost + (*st)->state.size());
+	}
+
+	//best_lb = MAX(best_lb, lower_bound);
+	//vertex_in_layer = orig_vertex_in_layer;
+	for (vector<Node*>::iterator nit = nodes_layer.begin(); nit != nodes_layer.end(); ++nit)	delete *nit;
+	nodes_layer.clear();
+	node_pool.clear();
+
+	return lower_bound;
+}
+
+//
+// Generate MDD relaxation that mimic a partial enumerative procedure, so no merging takes place
+// The lowest cost node on every layer is stored in a vector, this is used to compute the lower bounds
+//
+// TODO: prune BDD nodes according to best lower bound (using perhaps some estimate?)
+//
+int MinBandBDD::generateFake2Relaxation(int initial_lp) {
+//todo variablewidthd
+	//	maxWidth = MAX(10, 2000.0 / active_vertices.size());
+//	cout << "max width = " << maxWidth << endl;
+
+//	cout << "[BDD - place = " << x10_placeID << "] Node to explore:" << endl;
+//	cout << "\tLP = " << initial_lp << endl;
+//	cout << "\tState = { ";
+//	for (vector<int>::iterator it = active_vertices.begin(); it != active_vertices.end(); ++it) {
+//		cout << *it << " ";
+//	}
+//	cout << "}" << endl << endl;
+
+	//lowest cost on every layer among the nodes that would have been merged (now just ignored)
+	vector<int> lowest_cost;
+	int lowest_unbranched = inst->graph->n_vertices;
+
+	// ---------------------------------------------------------------------
+	// 1. Initialization
+	// ---------------------------------------------------------------------
+
+	if (variable_width){
+		maxWidth = INF;
+	}
+
+	lower_bound = initial_lp;
+	isUBUpdated = false;
+
+  //store vertex in layer data to restore when done with the relaxation.
+  	vector<int> orig_vertex_in_layer(vertex_in_layer.begin(), vertex_in_layer.end());
+
+	// Initialize internal structures for vertex ordering
+	//vertex_in_layer.clear();
+	if (var_ordering->order_type == MinState) {
+		for (vector<int>::iterator v = active_vertices.begin(); v != active_vertices.end(); ++v) {
+			in_state_counter[*v] = 1;
+		}
+	} else if ( var_ordering->order_type == RootOrder ) {
+		ComparatorAuxIntVectorDescending comp(root_ordering);
+		sort( active_vertices.begin(), active_vertices.end(), comp );
+
+	} else if( var_ordering->order_type == LexOrder ) {
+		sort( active_vertices.begin(), active_vertices.end() );
+
+	} else if( var_ordering->order_type == SpanningTree ) {
+		//do nothing
+	} else if( var_ordering->order_type == Degree ) {
+		//do nothing
+	} else if( var_ordering->order_type == FromFront ) {
+		//do nothing
+	} else if( var_ordering->order_type == FrontBack ) {
+		//do nothing
+	}
+	else {
+		cout << "Order undefined" << endl;
+		exit(0);
+	}
+
+	//cout<< "Starting relaxation :: ("<< lower_bound << ") :: ["<< maxWidth << "] ::";
+	// ---------------------------------------------------------------------
+	// 2. Relaxation
+	// ---------------------------------------------------------------------
+
+	// Initialize pool for root node
+
+	// create root node state
+
+	//imake sure we have the right number of things in vertex_in_layer
+	// we usually have one extra set in the state
+	while (vertex_in_layer.size() >= active_state.size()and vertex_in_layer.size() >0)
+	{
+		vertex_in_layer.pop_back();
+	}
+
+	//if this is the very first node active_state is empty so we have to put something in there before we copy it.
+	/*if (active_state.size() < 1 ){
+		vector<myint> full_domain;
+		for (myint i=0;i <= (int)(std::ceil(inst->graph->n_vertices/2)); i++) full_domain.insert(i);
+		active_state.push_back(full_domain);
+	}*/
+
+	//initialise all feasible root state //TODO copy active state
+	State root_state;
+	Domain fulldomain;
+	if (active_state.size() < fulldomain.size()	){
+		for(int i =0; i<fulldomain.size(); i++){
+			Domain domain = ~fulldomain;
+			root_state.push_back(domain);
+		}
+	}
+	else{
+		root_state = active_state;
+	}
+
+	// create initial BDD node
+	Node* initial_node = new Node(root_state, 0, true); // initial_node->printState();
+	node_pool.clear();
+	node_pool[ &(root_state) ] = initial_node;
+	root_node = initial_node;
+
+	BDDNodePool::iterator node_it, existing_node_it;
+	Node* node;
+	bool exactNodeInPool = true; // as soon as we have no more exact nodes left we can jump out asd start checking out children
+
+	// relaxation control variables
+	int current_vertex;
+	//maybe give branchnode a layer, copy info over when creating rootnode.
+	int layer = 0 ;
+	// so for the first vertex we have a 0, last layer n-1, corresponds to indices in vertex in layer
+	const int num_active_vertices = inst->graph->n_vertices - layer;
+	//here active vertices are vertices that dont have domains yet
+
+	//Todo enable/disable early breaks
+	while ( layer < inst->graph->n_vertices/* and exactNodeInPool*/ ) {
+		//cout << "layer " << layer << " - ";
+		exactNodeInPool = false;
+		// ==================================
+		// 1. Vertex and BDD node selection
+		// ==================================
+
+		// select next vertex and update active vertex list
+		if (var_ordering->order_type == MinState) {
+			current_vertex = choose_next_vertex_min_size_next_layer();
+		} else if ( var_ordering->order_type == SpanningTree ) {
+			current_vertex = var_ordering->vertex_in_layer(new BDD(), layer);
+			active_vertices.erase(std::remove(active_vertices.begin(), active_vertices.end(), current_vertex), active_vertices.end());
+		}else if ( var_ordering->order_type == Degree ) {
+			BDD* temp = new BDD();
+			current_vertex = var_ordering->vertex_in_layer(temp, layer);
+			active_vertices.erase(std::remove(active_vertices.begin(), active_vertices.end(), current_vertex), active_vertices.end());
+			delete temp;
+		}else if ( var_ordering->order_type == FrontBack ) {
+			BDD* temp = new BDD();
+			current_vertex = var_ordering->vertex_in_layer(temp, layer);
+			active_vertices.erase(std::remove(active_vertices.begin(), active_vertices.end(), current_vertex), active_vertices.end());
+			delete temp;
+		}else if ( var_ordering->order_type == FromFront ) {
+			BDD* temp = new BDD();
+			current_vertex = var_ordering->vertex_in_layer(temp, layer);
+			active_vertices.erase(std::remove(active_vertices.begin(), active_vertices.end(), current_vertex), active_vertices.end());
+			delete temp;
+		}else if ( var_ordering->order_type == RootOrder ) {
+			current_vertex = active_vertices.back();
+			active_vertices.pop_back();
+		} else if (var_ordering->order_type == LexOrder) {
+			current_vertex = active_vertices.back();
+			active_vertices.pop_back();
 
 		} else {
 			exit(0);
@@ -780,12 +1630,12 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 		//cout<< "width of layer " << (int)nodes_layer.size() << " max " << maxWidth;
 
 		//instead of merging we just sort the nodes here.
-		if( maxWidth != INF && (int)nodes_layer.size() > maxWidth ) {
-			//mergeLayer(layer, nodes_layer);
+		if( maxWidth != INF && (int)nodes_layer.size() > maxWidth-1 ) {
+
 			sort(nodes_layer.begin(), nodes_layer.end(), CompareNodesCostDelta());
-			lowest_cost.push_back(nodes_layer[maxWidth]->cost);
-			lowest_unbranched = MIN(lowest_unbranched, nodes_layer[maxWidth]->cost);
-			isExact = false;
+			lowest_cost.push_back(nodes_layer[maxWidth-1]->cost);
+			lowest_unbranched = MIN(lowest_unbranched, nodes_layer[maxWidth-1]->cost);
+			mergeLayer(layer, nodes_layer);
 		}
 		cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;		if (!exactNodeInPool) cout << "x"; cout << " " << lowest_unbranched;  cout << endl;
 		// ==================================
@@ -799,82 +1649,85 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 		Domain domain;
 
 		//only on the first few, the rest would have been merged and are now ignored
-		for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end() && it != nodes_layer.begin()+ maxWidth ; ++it) {
+		for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end() && it != nodes_layer.end() ; ++it) {
+
 
 			branch_node = (*it);
+			//this is so that we only branch on
+			//if (branch_node->exact){
 
+				//this only filters the domains that we are about to branch on
+				filterBounds2(branch_node->state);
 
-			//this only filters the domains that we are about to branch on
-			filterBounds2(branch_node->state);
+				//domains should already be filtered once we get  here
+				//remove most recent domain, we are now branching on it
+				// definition can be moved outside, seems to be slower??
+				Domain branch_domain = branch_node->state[vertex_in_layer[layer]];
+				//cout << branch_domain<< endl;
+				for (int v = 0; v< inst->graph->n_vertices; v++){
+					if (branch_domain[v]){
+						//domain.reset();
+						//domain.set(v);
 
-			//domains should already be filtered once we get  here
-			//remove most recent domain, we are now branching on it
-			// definition can be moved outside, seems to be slower??
-			Domain branch_domain = branch_node->state[layer];
-			//cout << branch_domain<< endl;
-			for (int v = 0; v< inst->graph->n_vertices; v++){
-				if (branch_domain[v]){
-					//domain.reset();
-					//domain.set(v);
+						node = new Node(branch_node->state,
+								branch_node->cost ,
+								branch_node->exact);
 
-					node = new Node(branch_node->state,
-							branch_node->cost ,
-							branch_node->exact);
+						//the one we are branching on
+						//cout << domain << "," << node->state[layer];
+						//node->state[layer] &= domain;
+						node->state[vertex_in_layer[layer]].reset();
+						node->state[vertex_in_layer[layer]].set(v);
+						//cout << "," << node->state[layer];
 
-					//the one we are branching on
-					//cout << domain << "," << node->state[layer];
-					//node->state[layer] &= domain;
-					node->state[layer].reset();
-					node->state[layer].set(v);
-					//cout << "," << node->state[layer];
-
-					if (node->filterDomains5(layer) < 0|| filterBounds2(node->state) < 0 ){
-						//if (  node->filterDomains5() < 0){
-						delete node;
-					}
-					else{
-						int cost=0;
-						//	node->cost = MAX(node->cost, calculateCost_caprara_fixed(node));
-						if (vertex_in_layer[vertex_in_layer.size()-1]== 0 or vertex_in_layer[vertex_in_layer.size()-1]== inst->graph->n_vertices-1)
+						if (node->filterDomains5(vertex_in_layer[layer]) < 0|| filterBounds2(node->state) < 0 ){
+							//if (  node->filterDomains5() < 0){
+							delete node;
+						}
+						else{
+							int cost=0;
+							//	node->cost = MAX(node->cost, calculateCost_caprara_fixed(node));
+							if (vertex_in_layer[vertex_in_layer.size()-1]== 0 or vertex_in_layer[vertex_in_layer.size()-1]== inst->graph->n_vertices-1)
 							node->cost = MAX(node->cost, inst->caprara_list[v]);
 						else
 							cost = calculateCost_caprara_pos(node,v);
 						node->cost = MAX(node->cost, cost);
 
-						if (node->cost < upper_bound)
-							cost = calculateCost_mu2(node)	;
+							/*if (node->cost < upper_bound)
+								cost = calculateCost_mu2(node)	;
+							node->cost = MAX(node->cost,cost);*/
+
+							//cgen cost
+							if (node->cost < upper_bound)
+							cost = calculateCost_caprara_gen(node)	;
 						node->cost = MAX(node->cost,cost);
 
-						//cgen cost
-						/*if (node->cost < upper_bound)
-							cost = calculateCost_caprara_gen(node)	;
-						node->cost = MAX(node->cost,cost);*/
+							//ilp cost
 
-						//ilp cost
-						/*
-						if (node->exact and node->cost < upper_bound)
-							cost = calculateCost_ILP2(node);
-						node->cost = MAX(node->cost, cost );*/
+							/*if (node->exact and node->cost < upper_bound)
+								cost = calculateCost_ILP2(node);
+							node->cost = MAX(node->cost, cost );*/
 
-						if (node->cost < upper_bound) {
-							// Equivalence test: check if node is in list
-							existing_node_it = node_pool.find( &(node->state) );
-							if (existing_node_it != node_pool.end()) {
-								cout <<" Matched, merging";
-								// node already exists in the pool: update node match
-								merge(node, existing_node_it->second);
-								node = existing_node_it->second;
+							if (node->cost < upper_bound) {
+								// Equivalence test: check if node is in list
+								existing_node_it = node_pool.find( &(node->state) );
+								if (existing_node_it != node_pool.end()) {
+									cout <<" Matched, merging";
+									// node already exists in the pool: update node match
+									merge(node, existing_node_it->second);
+									node = existing_node_it->second;
 
-							} else {
-								//cout << "inserting" << endl;
-								node_pool[ &(node->state)] = node;
+								} else {
+									//cout << "inserting" << endl;
+									node_pool[ &(node->state)] = node;
+								}
+							} else { // cost > upperbounde
+								delete node;
 							}
-						} else { // cost > upperbounde
-							delete node;
 						}
 					}
 				}
-			}
+			//}
 		}
 		// if the number of nodes in the pool is empty, then we do not need to explore this BDD further
 		// since there are no better feasible solutions that can be generated from here
@@ -900,10 +1753,11 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 
 			if (lowest_cost.size() > 0 ){
 				cout << endl << lowest_unbranched << endl;
-				return lowest_unbranched	;
+				return MIN(upper_bound, lowest_unbranched)	;
 			}
 			else{
 				// Exact, never ignored nodes, return upper bound
+				cout << "HI";
 				return upper_bound;
 			}
 		}
@@ -927,7 +1781,7 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 
 
 	while (node_it != node_pool.end())	{
-
+			cout << node_it->second->cost;
 			//node_it->second->printState();
 
 			if (node_it->second->exact){
@@ -948,6 +1802,8 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 				}
 				count_exact++;
 			}
+			cout <<"X"<< node_it->second->cost;
+
 
 			if (node_it->second-> cost < min_cost_pool){
 				min_cost_pool = MIN(min_cost_pool, node_it->second->cost);
@@ -960,7 +1816,9 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 			node_it++;
 	}
 	cout <<endl << "at lb: "<< count_low << " / " << node_pool.size() << "\t Exact: " << count_exact << " / " << node_pool.size()<< endl <<branch_nodes.size( ) << endl;
+	cout << lower_bound <<  min_cost_pool << " " << lowest_unbranched <<endl;
 	lower_bound = MAX(lower_bound, MIN(min_cost_pool, lowest_unbranched));
+	lower_bound = MIN(lower_bound, upper_bound);
 
 	// if last node is exact, BDD is exact: update lower bound
 	if (hasExact) {
@@ -984,6 +1842,202 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 }
 
 
+void MinBandBDD::mergeLayerIBS(int layer, vector<Node*> &nodes_layer, int first, int width) {
+	//TODO move checks into this function
+
+	//should already be sorted
+	sort(nodes_layer.begin(), nodes_layer.end(), CompareNodesCostDelta());
+
+	// All nodes will be merged to the one with index "width-1", which will
+	// be denoted here by central node
+	Node* central_node = nodes_layer[first+width];
+
+	// If central node is exact, we add it to the branch node pool
+	// (since it will be maintained in the BDD, we have to make a copy)
+	if( central_node->exact ) {
+		addBranchNode(central_node);
+		central_node->exact = false;
+	}
+
+	State* central_state = &( central_node->state );
+
+
+	for (vector<Node*>::iterator node = nodes_layer.begin() + first +  width +1; node != nodes_layer.end(); ++node) {
+
+		for( int i = 0; i < inst->graph->n_vertices; i++){
+			(*central_state)[i] |= (*node)->state[i];
+		}
+		if ((*node)->exact) {
+			addBranchNode((*node));
+		}
+		delete (*node);
+	}
+
+	// resize node layer vector
+	nodes_layer.resize(first+width+1);
+
+	// Check if there are any other nodes which are equivalent to the central node
+
+	Node* node;
+	for (int i = 0; i <= first + width - 1; ++i) {
+
+		node = nodes_layer[i];
+
+		// check if this state already exists in layer nodes
+		if( node->state == (*central_state) ) {
+
+			if (node->exact) {
+				addBranchNode(node);
+				node->exact = false;
+			}
+
+			// delete the last node (i.e., the central one)
+			delete nodes_layer.back();
+
+			// remove it from queue
+			nodes_layer.pop_back();
+			break;
+		}
+	}
+}
+
+int MinBandBDD::calcDiffElement(State& stateCluster, State& stateNode){
+	Domain dom;
+	int diff;
+	int totalDiff = 0;
+	for (int i =0; i < stateCluster.size(); i++){
+		dom = stateCluster[i];
+		dom |= stateNode[i];
+		diff = dom.count() - stateCluster[i].count();
+		totalDiff  = totalDiff +  diff;
+	}
+	//cout << "d" << totalDiff <<", ";
+	return totalDiff;
+}
+
+
+vector<vector<int> > MinBandBDD::clusterFootprint(int layer, vector<Node*> &nodes_layer){
+
+	random_shuffle(nodes_layer.begin(), nodes_layer.end());
+	sort(nodes_layer.begin(), nodes_layer.end(), CompareNodesCost());
+
+	//cout << "Sorted" << endl;
+	int perCluster = nodes_layer.size() / maxWidth;
+	if (maxWidth* perCluster < nodes_layer.size()) perCluster++;
+	vector<vector< int > >	vect;
+	vector<State> footprints;
+	int count = 0;
+
+	//arbitrarily select the first W as cluster leaders
+	vector<int> cluster ;
+	for (int i=0; i< maxWidth; i++)
+	{
+		 cluster.push_back(i);
+		 vect.push_back(cluster);
+		 cluster.clear();
+		 footprints.push_back(nodes_layer[i]->state);
+	}
+
+
+	int smallestDiff =inst->graph->n_vertices * inst->graph->n_vertices;
+	int smallestCluster = 0;
+
+	// place all of the remaining nodes in the cluster with the smallest increase in domains
+	for (int nodeno = maxWidth; nodeno < nodes_layer.size(); nodeno++){
+
+		//calculate increase in footprint
+		smallestDiff = inst->graph->n_vertices * inst->graph->n_vertices;
+		smallestCluster = 0;
+		for (int clusterno = 0; clusterno < maxWidth; clusterno++){
+			int diff = calcDiffElement(footprints[clusterno], nodes_layer[nodeno]->state);
+			if (diff < smallestDiff){
+				smallestDiff = diff;
+				smallestCluster = clusterno;
+			}
+		}
+		//cout << " add to c" << smallestCluster << endl;
+		//add to best cluster: increase footprint and assign
+		for (int i = 0 ; i < inst->graph->n_vertices; i++){
+			footprints[smallestCluster][i] |= nodes_layer[nodeno]->state[i];
+		}
+		vect[smallestCluster].push_back(nodeno);
+
+	}
+
+
+	/*cout << "# nodes per cluster: " << perCluster << endl;
+
+	for (int i =0; i< nodes_layer.size(); i++){
+		//cout << cluster.size() <<","<< vect.size()<< endl;
+		if (cluster.size() < perCluster && vect.size() < maxWidth - 1	){
+			cluster.push_back(i);
+		}
+		else{
+			if (vect.size() < maxWidth -1 ){
+				vect.push_back(cluster);
+				cluster.clear();
+			}
+
+			cluster.push_back(i);
+		}
+	}
+	vect.push_back(cluster);*/
+
+	//cout << "Number of clusters created " << vect.size() << endl;
+
+	return vect;
+}
+
+void MinBandBDD::mergeCluster(int layer, vector<Node*> &nodes_layer){
+	//cout << "enter "<< endl;
+	vector<vector<int> > clusters = clusterFootprint(layer, nodes_layer);
+	vector<Node*>  new_nodes_layer;
+
+	for (vector<vector<int> >::iterator cluster_it = clusters.begin(); cluster_it!= clusters.end(); ++cluster_it){
+
+		//center of this cluser
+		Node* central_node = nodes_layer[cluster_it->at(0)];
+		if( central_node->exact ) {
+			addBranchNode(central_node);
+			central_node->exact = false;
+		}
+		State* central_state = &( central_node->state );
+
+		/*cout << "crep: "<< endl;
+		for (int i=0; i< inst->graph->n_vertices;++i)
+			cout<< central_node->state[i]<<endl;
+		cout << endl;*/
+
+		//merge everything in this cluster
+		for (vector<int>::iterator pos_it = cluster_it->begin()+1 ; pos_it != cluster_it->end(); ++pos_it){
+			//Minimum cost, since class sleader is no longer neccesarily cheapest
+			(*central_node).cost = MIN(central_node->cost, nodes_layer[*pos_it]->cost);
+			//Merge states
+			for( int i = 0; i < inst->graph->n_vertices; i++){
+				(*central_state)[i] |= (nodes_layer[*pos_it])->state[i];
+			}
+			if ( (nodes_layer[*pos_it])->exact) {
+				addBranchNode( (nodes_layer[*pos_it]) );
+			}
+		}
+
+		/*cout << "After merge: "<< endl;
+				for (int i=0; i< inst->graph->n_vertices;++i)
+					cout<< central_node->state[i]<<endl;
+				cout << endl;
+*/
+		//add merged node to  new layer
+		new_nodes_layer.push_back(central_node);
+	}
+
+	nodes_layer.swap(new_nodes_layer);
+	nodes_layer.resize(maxWidth);
+
+	//for (vector<Node*>::iterator nit = new_nodes_layer.begin(); nit!= new_nodes_layer.end(); ++nit)
+	//	delete *nit;
+
+}
+
 //
 // Merge nodes in a layer to meet maximum allowed width
 //
@@ -997,6 +2051,7 @@ void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 	// All nodes will be merged to the one with index "width-1", which will
 	// be denoted here by central node
 	Node* central_node = nodes_layer[maxWidth-1];
+	cout << "CN=" << nodes_layer[maxWidth-1]->cost<< ":"<< nodes_layer[maxWidth-1]->exact;
 
 	// If central node is exact, we add it to the branch node pool
 	// (since it will be maintained in the BDD, we have to make a copy)
@@ -1061,6 +2116,13 @@ void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 			nodes_layer.pop_back();
 			break;
 		}
+	}
+
+	for (int i = 0; i <= maxWidth-1; ++i) {
+
+			for (int j=0; j< inst->graph->n_vertices;++j)
+				cout<< nodes_layer[i]->state[j]<<endl;
+			cout << endl;
 	}
 }
 
@@ -1428,6 +2490,30 @@ void MinBandBDD::restrictLayer(int layer, vector<Node*> &nodes_layer) {
 
 
 int MinBandBDD::calculateCost_caprara_gen(Node* _node){
+	//this becomes dodgy when everything is fixed, we never check if the vertices are free
+	//if (vertex_in_layer.size() >= inst->graph->n_vertices-1) return 0 ;
+
+	/*//this is just for debugging
+	for (int i = 0; i<inst->graph->n_vertices; i++){
+			ub[i]  = inst->graph->n_vertices; lb[i] = -1;
+
+			for (int pos = 0; pos<inst->graph->n_vertices; pos++){
+				if(_node->state[pos][i]){
+					if (lb[i]<0)
+						lb[i] = pos;
+					ub[i] = pos;
+				}
+			}
+			if (lb[i] == inst->graph->n_vertices or ub[i] == -1) return -1;
+
+		}
+	for (int i = 0; i<inst->graph->n_vertices; i++){
+		cout << i<<"("<< lb[i] << ub[i] << ") ";
+	}
+	cout << endl;*/
+
+	//debugging end
+
 	int outside_max = -1;
 	vector<bool> false_vector(inst->graph->n_vertices, false);
 	//todo smarter initialisation/
@@ -1441,6 +2527,9 @@ int MinBandBDD::calculateCost_caprara_gen(Node* _node){
 		for (int v = 0; v < inst->graph->n_vertices; v++){
 			if (_node->state[i][v]){
 				vector<vector<int> > layered_graph = inst->graph->vertex_neighbourhood[v];
+				//cout << "LG" << layered_graph.size()<< " ";
+				//for (int iii =0 ; iii< layered_graph[0].size(); iii++) cout << layered_graph[0][iii];
+
 				int cumulative_vertices = 0;
 				int internal_max = 0;
 
@@ -1470,7 +2559,7 @@ int MinBandBDD::calculateCost_caprara_gen(Node* _node){
 							if (!intersect) disjoint_domains++;
 						}
 					}
-
+					//cout << "L"<< layer_number<<"{(" <<low_range<<","<<high_range<<")"<< cumulative_vertices <<"," << disjoint_domains<<"} ";
 					if (layer_number > 0){
 						internal_max = std::max(internal_max,
 								(int)std::ceil((1.*(cumulative_vertices+disjoint_domains > 2*i
@@ -1481,6 +2570,8 @@ int MinBandBDD::calculateCost_caprara_gen(Node* _node){
 				//account for case layer 0
 				if (internal_max > 0)
 					position_min = (int)std::min(position_min, internal_max);
+
+				//cout << "pos" << i << ",v="<< v<< ":"<<internal_max<<"|"<<position_min<<" ";
 			}
 		}
 		//cout << position_min << endl;
@@ -1522,7 +2613,7 @@ int MinBandBDD::calculateCost_caprara_gen(Node* _node){
 							if (!intersect) disjoint_domains++;
 						}
 					}
-
+					//cout << "L"<< layer_number<<"{(" <<low_range<<","<<high_range<<")"<< cumulative_vertices <<"," << disjoint_domains<<"} ";
 					if (layer_number > 0){
 						internal_max = std::max(internal_max,
 								(int)std::ceil((1.*(cumulative_vertices+disjoint_domains > 2*i
@@ -1533,15 +2624,21 @@ int MinBandBDD::calculateCost_caprara_gen(Node* _node){
 				//account for case layer 0
 				if (internal_max > 0)
 					position_min2 = (int)std::min(position_min2, internal_max);
+
+				//cout << "pos" << inst->graph->n_vertices-i-1 << ",v="<< v<< ":"<<internal_max<<"|"<<position_min2<<" ";
+
 			}
 		}
 		//cout << position_min2 << endl;
 
 
+
 		outside_max = (int)std::max(outside_max,
 				std::max(position_min, position_min2));
-
+		//cout << outside_max << endl;
 	}
+
+	//cout << outside_max << endl;
 	return outside_max;
 
 }
@@ -1549,7 +2646,6 @@ int MinBandBDD::calculateCost_caprara_pos(Node* _node, int _vertex){
 	int pos = vertex_in_layer[vertex_in_layer.size()-1];
 	int cumulative_vertices = 0;
 	int internal_max = 0;
-
 	for (vector<vector<int> >::iterator layer = inst->graph->vertex_neighbourhood[_vertex].begin()+1; layer!=inst->graph->vertex_neighbourhood[_vertex].end(); ++layer){
 		int disjoint_domains = 0;
 
@@ -1563,6 +2659,7 @@ int MinBandBDD::calculateCost_caprara_pos(Node* _node, int _vertex){
 									: (cumulative_vertices)/2) - 1 ) /layer_number));
 		}
 	}
+
 
 	return internal_max;
 
@@ -1623,10 +2720,14 @@ int MinBandBDD::calculateCost_bounds(Node* _node){
 		if (lb[i] == -1 or ub[i] == -1) return -1;
 	}
 
+	//for (int i = 0; i<inst->graph->n_vertices; i++){	cout << i<<"("<< lb[i]<<","<<ub[i]<<") "; } cout << endl;
+
 	for (int vi = 0; vi < inst->graph->n_vertices-1; vi++){
 		for (int vj = vi+1; vj< inst->graph->n_vertices; vj++){
 
 			if (inst->graph->adj_m[vi][vj]){
+				//cout << vi<<vj<<",";
+
 				int smallest_cost_edge = inst->graph->n_vertices+1;
 
 				//contained, dist 1
@@ -2120,9 +3221,10 @@ int MinBandBDD::calculateCost_ILP2(Node* _node){
 	//vector<int> lb(inst->graph->n_vertices,-1);
 	//vector<int> ub(inst->graph->n_vertices,-1);
 	for (int i = 0; i<inst->graph->n_vertices; i++){
-		lb[i]  = inst->graph->n_vertices; ub[i] = -1;
 
-		//Only works for frontback ordering
+		/*//Only works for frontback ordering
+		 *
+		lb[i]  = inst->graph->n_vertices; ub[i] = -1;
 		int pos = 0;
 		for (int pos=0; pos< inst->graph->n_vertices; pos=pos+2){
 			if(_node->state[pos][i]){
@@ -2135,14 +3237,16 @@ int MinBandBDD::calculateCost_ILP2(Node* _node){
 				lb[i] = std::min(lb[i],inst->graph->n_vertices - 1 - (pos-1)/2);
 				ub[i]  = std::max(ub[i],inst->graph->n_vertices - 1 - (pos-1)/2);
 			}
-		}/*
+		}*/
+		ub[i]  = inst->graph->n_vertices; lb[i] = -1;
+
 		for (int pos = 0; pos<inst->graph->n_vertices; pos++){
 			if(_node->state[pos][i]){
 				if (lb[i]<0)
 					lb[i] = pos;
 				ub[i] = pos;
 			}
-		}*/
+		}
 		if (lb[i] == inst->graph->n_vertices or ub[i] == -1) return -1;
 		if (lb[i] == ub[i]){
 			fixed_pos.push_back(lb[i]);
@@ -2588,6 +3692,7 @@ double MinBandBDD::calculateCost_bounds_delta(Node* _node){
 
 }
 */
+
 int MinBandBDD::filterBounds2(State& state){
 	//only filters the layer we are branching on
 	//cout << "fb";
@@ -2636,16 +3741,16 @@ int MinBandBDD::filterBounds2(State& state){
 				ub[i] = ub[j]+jump;
 			}
 
-			//prune state[.][i]
+			//prune state[.][j]
 			if (lb[j] < lb[i] - jump){
 				for (int pos=lb[j]; pos<lb[i] - jump; pos++){
-					state[pos].reset(i);
+					state[pos].reset(j);
 				}
 				lb[j] = lb[i] - jump;
 			}
 			if (ub[j] > ub[i] + jump){
 				for (int pos=ub[i] + jump; pos<inst->graph->n_vertices; pos++){
-					state[pos].reset(i);
+					state[pos].reset(j);
 				}
 				ub[j] = ub[i]+jump;
 			}
@@ -2735,3 +3840,73 @@ int MinBandBDD::filterBounds2(State& state){
 
 	return 0;
 }*/
+
+
+
+
+///////////////////////////////////////////////////////////////////
+/* ML701 project starts here */
+///////////////////////////////////////////////////////////////////
+
+vector<vector<int> > MinBandBDD::kMeansClusters(int layer, vector<Node*> &nodes_layer){
+/* Returns a vector of vector of ints. vect[k] is a vector of nodes in cluster k,
+ * vect[k][i] is the ith node in cluster k (not that it is a bad idea to index like this
+ * since clusters will have different sizes)
+ *
+ * nodes_layer is a vector of all the nodes on this layer, if you change the order of the nodes
+ * make sure that the returned clusters (indices) still correspond to the correct nodes.
+ *
+ * For more info about a node see mb_bdd.hp
+ *
+ */
+	//k = W clusters initialized clusters[i] has length 0 after initialization
+	vector<vector< int> > clusters;
+	for (int i=0; i< maxWidth; i++){
+		vector<int> v;
+		clusters.push_back(v);
+	}
+
+	//distance matrix A must be learned
+	vector<vector< double > > A  = learnDistanceMatrix(layer,  nodes_layer);
+
+	//do clustering
+
+
+	return clusters;
+
+}
+
+vector<vector<double> > MinBandBDD::learnDistanceMatrix(int layer, vector<Node*> &nodes_layer){
+/* This function first calls to determine similarity of pairs of nodes then solves an optimization
+ * to determine a distance metric in the form of a matrix A.
+ *
+ */
+
+	//getSimilarity tests a fraction of the pairs
+	vector<vector< int> > similarity = getSimilarity(layer,  nodes_layer);
+
+	// reformulate results for easy iteration
+	vector<int> similar_i = similarity[0];
+	vector<int> similar_j = similarity[1];
+	vector<int> dissimilar_i = similarity[2];
+	vector<int> dissimilar_j = similarity[3];
+
+	//learn distances
+
+
+	// return
+
+
+
+}
+
+vector<vector<double> > MinBandBDD::getSimilarity(int layer, vector<Node*> &nodes_layer, double p=0.01){
+/* take some p fraction of pairs and test for similarity
+ *
+ */
+
+	vector<vector< int> > similarity;
+}
+
+
+

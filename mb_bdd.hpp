@@ -27,7 +27,7 @@ using namespace std;
 //unsigned char has rang 0..255
 //typedef unsigned char myint;
 typedef  unsigned char myint;
-typedef std::bitset<10> Domain;
+typedef std::bitset<15> Domain;
 typedef vector<Domain> State;
 
 //
@@ -78,26 +78,26 @@ struct Node {
 	int filterDomains2();
 	//int filterDomains3();
 	//int filterDomains4();
-	int filterDomains5(int layer);
+	int filterDomains5(int pos);
 
 	void printState();
 
 };
 
-inline int Node::filterDomains5(int layer){
+inline int Node::filterDomains5(int pos){
 	//cout << "fd";
 	if (exact){
 		int n = (*state.end()).size();
 		int setidx = -1;
 
-		for (int i=0; i<state[layer].size(); i++)
-			if (state[layer][i])
+		for (int i=0; i<state[pos].size(); i++)
+			if (state[pos][i])
 				setidx = i;
 
 		int counter = 0;
 		//all we have to do is delete all the other things (only later domains, exact), cant be infeasible
 		for (std::vector<Domain >::iterator domain=state.begin(); domain != state.end(); ++domain	){
-			if (counter != layer)
+			if (counter != pos)
 				(*domain).reset(setidx);
 			counter++;
 		}
@@ -214,6 +214,23 @@ struct CompareNodesCost {
 struct CompareNodesCostDelta {
 	bool operator()(const Node* nodeA, const Node* nodeB) const {
 		return nodeA->cost+nodeA->cost_delta < nodeB->cost+nodeB->cost_delta;
+	}
+};
+struct CompareNodesDomain {
+	bool operator()(const Node* nodeA, const Node* nodeB) const {
+		cout << "x"<<endl;
+		int n = nodeA->state.size();
+		for (int i=0; i< nodeA->state.size()/2; i++){
+			cout << i << endl;
+			if (nodeA->state[i].count() != nodeB->state[i].count())
+				return nodeA->state[i].count() < nodeB->state[i].count();
+			cout << "y"<< endl;
+
+			if (nodeA->state[n-1-i].count() != nodeB->state[n-1-i].count() )
+				return nodeA->state[n-1-i].count() < nodeB->state[n-1-i].count();
+		}
+
+		return true;
 	}
 };
 
