@@ -101,6 +101,7 @@ inline int Node::filterDomains5(int pos){
 				(*domain).reset(setidx);
 			counter++;
 		}
+
 		return 1;
 	}
 	else

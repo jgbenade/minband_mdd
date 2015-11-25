@@ -12,6 +12,9 @@
 #include <deque>
 #include <set>
 #include <bitset>
+#include <armadillo> //for matrix data, ML project
+
+using namespace arma;
 
 #include "minband_orderings.hpp"
 #include "minband_instance.hpp"
@@ -262,9 +265,12 @@ public:
 
   	////////////////////////////////////////////////////////////////////////
   	/* Functions for machine learning project */
-  	vector<vector<int> > MinBandBDD::kMeansClusters(int layer, vector<Node*> &nodes_layer);
-  	vector<vector<double> > MinBandBDD::learnDistanceMatrix(int layer, vector<Node*> &nodes_layer);
-  	vector<vector<double> > MinBandBDD::getSimilarity(int layer, vector<Node*> &nodes_layer, double p=0.01);
+  	vector<vector<int> >    kMeansClusters(int layer, vector<Node*> &nodes_layer);
+  	mat learnDistanceMatrix(int layer, vector<Node*> &nodes_layer, mat& X);
+  	vector<vector<int> > getSimilarity(int layer, vector<Node*> &nodes_layer, double p, int delta, int epsilon);
+  	int  inferCost(Node* node);
+  	mat getData(vector<Node*> nodes_layer	);
+
   	/* End functions for machine learning  project */
   	///////////////////////////////////////////////////////////////////////
 
