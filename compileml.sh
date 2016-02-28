@@ -1,2 +1,2 @@
 #!bin/bash
-g++ -pg -std=gnu++11 main_mb.cpp minband_*.cpp -I/c/boost_1_58_0 -ID:/Users/jbenade/Documents/armadillo-6.200.4/include -ID:/Users/jbenade/Documents/eigen-eigen/ -O3 -o main_mb.exe
+g++ -pg -std=gnu++11 main_mb.cpp minband_*.cpp -I/c/boost_1_58_0 -ID:/Users/jbenade/Documents/armadillo-6.200.4/include -ID:/Users/jbenade/Documents/armadillo-6.200.4/examples/lib_win64/ -ID:/Users/jbenade/Documents/eigen-eigen/ -ID:/Users/Documents/OpenBLAS-v0.2.15-Win64-int32/include/ -LD:/Users/Documents/OpenBLAS-v0.2.15-Win64-int32/lib/ -lopenblas  -llapack -O3 -o main_mb.exe

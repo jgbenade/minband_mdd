@@ -12,7 +12,8 @@
 #include <cmath>
 #include <stdlib.h> /*rand*/
 #include "minband_bdd.hpp"
-#include "DML.h"
+//#include "DML.h"
+//#include "DML2.cpp"
 
 using namespace std;
 //TODO 1 Merging nodes: DONE
@@ -106,8 +107,8 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	cout << "restriction "<< ub2 << endl;
 	upper_bound = MIN(upper_bound,ub2);*/
 	//upper_bound = ;
-	//int lb1 = iterativeBoundStrengthening();
-	int lb1 = generateRelaxation(-1);
+	int lb1 = iterativeBoundStrengthening();
+	//int lb1 = generateRelaxation(-1);
 	best_lb = MAX(lb1, best_lb);
 
 	//cout << "returned " << lb1 << best_lb<<endl;
@@ -119,10 +120,10 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 
 	// check if BDD is already exact
 	//Not valid for fake relaxation or IBS
-	isExact = branch_nodes.empty();
+	/*isExact = branch_nodes.empty();
 	if (isExact) {
 		return;
-	}
+	}*/
 	// initialize branch node pool
 	//update bounds because the higher level search repeatedly copy form the pool
 	for (vector<BranchNode*>::iterator st = branch_nodes.begin(); st != branch_nodes.end(); ++st) {
@@ -167,11 +168,12 @@ int MinBandBDD::iterativeBoundStrengthening(){
 
 		cout << "\n IBS --- " <<  phi << ": " << return_val << " , ub= " << upper_bound <<endl;
 
-		if (return_val == -1){
-			//no node on the last layer with cost <= phi
+		if (return_val == -1 && phi < upper_bound){
+			//no node on the last layer with cost <= phi and cost <upperbound
+			//note that we may have recently improved the upperbound and thus pruned nodes.
 			phi++;
 		}
-		if (return_val == 0 ){
+		if (return_val == 0){
 			//merged node on the last layer with cost = phi., increase width?
 		}
 	}
@@ -433,15 +435,13 @@ int MinBandBDD::BSRelaxation(int _target_lb, int _width){
 								cost = calculateCost_caprara_gen(node)	;
 							node->cost = MAX(node->cost,cost);*/
 
-							if (node->cost < _target_lb + 1 && node->cost < upper_bound)
+							/*if (node->cost < _target_lb + 1 && node->cost < upper_bound)
 								cost = calculateCost_mu2(node)	;
-							node->cost = MAX(node->cost,cost);
+							node->cost = MAX(node->cost,cost);*/
 
 							if (node->exact and node->cost < _target_lb + 1  && node->cost < upper_bound)
 								cost = calculateCost_ILP2(node);
 							node->cost = MAX(node->cost, cost );
-
-
 
 							if (node->cost <  _target_lb + 1 && node->cost < upper_bound) {
 								//cout << "c" << node->cost << " ";
@@ -546,7 +546,6 @@ int MinBandBDD::BSRelaxation(int _target_lb, int _width){
 
 				if (node_it->second->cost < _target_lb + 1)
 					return_val =  1;
-
 			}
 
 			if (node_it->second-> cost < min_cost_pool){
@@ -682,8 +681,6 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		root_state = active_state;
 	}
 
-
-
 	//print the initial state just to check
 	/*for( std::vector<set<myint> >::const_iterator i = active_state.begin(); i != active_state.end(); ++i){
 		for( std::set<myint>::const_iterator j = (*i).begin(); j != (*i).end(); ++j){
@@ -788,8 +785,8 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		// ==================================
 		//cout<< "width of layer " << (int)nodes_layer.size() << " max " << maxWidth;
 		if( maxWidth != INF && (int)nodes_layer.size() > maxWidth ) {
-			mergeCluster(layer, nodes_layer);
-			//mergeLayer(layer, nodes_layer);
+			//mergeCluster(layer, nodes_layer);
+			mergeLayer(layer, nodes_layer);
 		}
 		cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;		if (!exactNodeInPool) cout << "x"; cout << endl;
 		// ==================================
@@ -806,6 +803,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 			//cout<< "a"<<endl;
 
 			//this only filters the domains that we are about to branch on
+			//insert pair/triple infor in to filter bounds
 			filterBounds2(branch_node->state);
 
 			//cout<<"b"<< (*(--branch_node->state.end())).size() <<endl;
@@ -872,7 +870,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 								node_pool[ &(node->state)] = node;
 							}
 						} else { // cost > upperbounde
-							cout << "High cost" << endl;
+							//	cout << "High cost" << endl;
 							delete node;
 						}
 					}
@@ -1918,6 +1916,20 @@ int MinBandBDD::calcDiffElement(State& stateCluster, State& stateNode){
 	return totalDiff;
 }
 
+vector<vector<int > > MinBandBDD::clusterRandom(int layer, vector<Node*> &nodes_layer){
+	vector<vector<int> > clusters ;
+
+	for (int i=0; i< maxWidth; i++)
+	{
+		vector<int> cluster;
+		clusters.push_back(cluster);
+	}
+	for (int i; i < nodes_layer.size(); i++ ){
+		int cl = rand()%maxWidth;
+		clusters[cl].push_back(i);
+	}
+	return clusters;
+}
 
 vector<vector<int> > MinBandBDD::clusterFootprint(int layer, vector<Node*> &nodes_layer){
 
@@ -1993,8 +2005,8 @@ vector<vector<int> > MinBandBDD::clusterFootprint(int layer, vector<Node*> &node
 
 void MinBandBDD::mergeCluster(int layer, vector<Node*> &nodes_layer){
 
-	//vector<vector<int> > clusters = clusterFootprint(layer, nodes_layer);
-	vector<vector<int> > clusters = kMeansClusters(layer, nodes_layer);
+	vector<vector<int> > clusters = clusterFootprint(layer, nodes_layer);
+	//vector<vector<int> > clusters =   kMeansClusters(layer, nodes_layer);
 	vector<Node*>  new_nodes_layer;
 	cout << "in mergecluster \n";
 	for (vector<vector<int> >::iterator cluster_it = clusters.begin(); cluster_it!= clusters.end(); ++cluster_it){
@@ -2127,12 +2139,12 @@ void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 		}
 	}
 
-	for (int i = 0; i <= maxWidth-1; ++i) {
+	/*for (int i = 0; i <= maxWidth-1; ++i) {
 
 			for (int j=0; j< inst->graph->n_vertices;++j)
 				cout<< nodes_layer[i]->state[j]<<endl;
 			cout << endl;
-	}
+	}*/
 }
 
 
@@ -3441,6 +3453,21 @@ int MinBandBDD::calculateCost_ILP2(Node* _node){
 		int pos=0;
 		bool feasible_flag = true;
 
+		//first do the simple checks on the inttervals allowed for the free vertices.
+		for(int iti = 0; iti < data_vertices.size()-1; iti++)	{
+			for (int itj = iti+1 ; itj < data_vertices.size() ; itj++){
+				if ((data_vertices[iti][2] < data_vertices[itj][1]) || (data_vertices[iti][1] > data_vertices[itj][2])){
+					//then gap between intervals, measure gap.
+					int h = inst->graph->dist(data_vertices[iti][0], data_vertices[itj][0]);
+
+					if ( std::max( -data_vertices[iti][2] + data_vertices[itj][1], data_vertices[iti][1] - data_vertices[itj][2]) > h*phi){
+						feasible_flag = false;
+						//cout << "Internal vertices check success"<<endl;
+					}
+				}
+			}
+		}
+
 		while(pos < inst->graph->n_vertices and feasible_flag){
 
 			// if f_v <= pos, potential vertex
@@ -3854,11 +3881,13 @@ int MinBandBDD::filterBounds2(State& state){
 
 
 ///////////////////////////////////////////////////////////////////
-/* ML701 project starts here */
+/* ML701 project starts here
+ * include dml2 in minband_bdd.cpp, include armadillo and namespance in .hpp*/
 ///////////////////////////////////////////////////////////////////
+/*
 
 vector<vector<int> > MinBandBDD::kMeansClusters(int layer, vector<Node*> &nodes_layer){
-/* Returns a vector of vector of ints. vect[k] is a vector of nodes in cluster k,
+ Returns a vector of vector of ints. vect[k] is a vector of nodes in cluster k,
  * vect[k][i] is the ith node in cluster k (not that it is a bad idea to index like this
  * since clusters will have different sizes)
  *
@@ -3867,7 +3896,7 @@ vector<vector<int> > MinBandBDD::kMeansClusters(int layer, vector<Node*> &nodes_
  *
  * For more info about a node see mb_bdd.hp
  *
- */
+
 
 
 	// get Xmatrix from nodes_layer, easier for operations later
@@ -3951,41 +3980,241 @@ vector<vector<int> > MinBandBDD::kMeansClusters(int layer, vector<Node*> &nodes_
 
 	cout << "Returning from clustering" << endl;
 	return ret_clusters;
+}
 
+vector<vector<int> > MinBandBDD::constrainedkMeansClusters(int layer, vector<Node*> &nodes_layer){
+ Returns a vector of vector of ints. vect[k] is a vector of nodes in cluster k,
+ * vect[k][i] is the ith node in cluster k (not that it is a bad idea to index like this
+ * since clusters will have different sizes)
+ *
+ * nodes_layer is a vector of all the nodes on this layer, if you change the order of the nodes
+ * make sure that the returned clusters (indices) still correspond to the correct nodes.
+ *
+ * For more info about a node see mb_bdd.hp
+ *
+
+
+	// get Xmatrix from nodes_layer, easier for operations later
+	//TODO this is slow, be smarter if time is important
+	mat X = getData(nodes_layer);
+
+	//distance matrix A must be learned
+	vector<vector<int> > S;
+	mat A  = learnDistanceMatrix(layer,  nodes_layer, X, S);
+
+	// find connected components
+	//cout << "Sim: ";
+	vector<vector< int > > adj(nodes_layer.size(), vector<int>(nodes_layer.size(), 0));
+	for (int i = 0 ;i < S[0].size() ; i++){
+		adj[S[0][i]][S[1][i]] = 1;
+		adj[S[1][i]][S[0][i]] = 1;
+		//cout << " (" << S[0][i] << "," << S[1][i] << ") ";
+	}cout << endl;
+
+	vector<int> components(nodes_layer.size(), 0); //same componenets has same number here, except comp 0, thats just singletons (and means lateron)
+	int cnum = 0; //number of components larger than 1
+	int csing = 0;  //number of componenets of singletons
+	vector<int>	 stack;
+	for (int i =0; i< nodes_layer.size(); i++){
+		//if not yet explored/in component
+		stack.clear();
+		vector<int> comp; //stores the current component, used to test if >1, if so relabel in components
+
+		if (components[i] ==0 ) {
+			comp.push_back(i);
+			stack.push_back(i);
+			while(stack.size() > 0){
+				int current_node = stack.back();
+				stack.pop_back();
+				//dont revisit things
+				if (components[current_node] == 0){
+					for (int j = 0; j< nodes_layer.size(); j++	){
+						if (adj[current_node][j] == 1){
+							//cout << "push " << j;
+							stack.push_back(j);
+							comp.push_back(j);
+						}
+					}
+					components[current_node] = cnum+1;
+				}
+
+			}
+			//cout << "comp: " ; for (int k = 0; k< comp.size(); k++	){ cout << " " << comp[k];}
+
+			if (comp.size() > 1){
+				cnum++;
+				for (int k = 0; k< comp.size(); k++	){
+					components[comp[k]] = cnum;
+				}
+			} else {
+				components[i] = 0;
+				csing++;
+			}
+		}
+
+	}
+	cout<< "components: ";
+	for (int i =0 ; i< components.size(); i++){
+		cout << components[i] << ",";
+	} cout <<endl;
+
+	// remove points, replace by means of connected components
+	mat Xx = getData(nodes_layer, components, cnum, csing);
+
+	// do clustering
+
+	mat kmeans(maxWidth, Xx.n_cols);
+	vector<int> clusters(Xx.n_rows, 0);
+
+	//initialise random nodes as means
+	vector<bool> selected(nodes_layer.size(), false);
+	int sel = 0;
+	int NUMCLUST = MIN(maxWidth, Xx.n_rows);
+
+	if (NUMCLUST < maxWidth ){
+		cout << "A" << endl;
+		for (int iii = 0; iii< Xx.n_rows ; iii++){
+			clusters[iii] = iii;
+		}
+	}else{
+		cout << "B" << endl;
+		while (sel < maxWidth){
+			int r = rand()%Xx.n_rows ;
+			if (!selected[r]){
+				selected[r] = true;
+				kmeans.row(sel) = Xx.row(r);
+				sel++;
+			}
+		}
+		cout << "Done initialising centres" << endl;
+
+		vector<double> obj_vals;
+
+		for (int it = 0; it < 100; it++){
+			cout << "Cluster iteration: " << it << endl;
+			double obj_func = 0;
+			//assign to closest
+			cout << "Assigning to closest" << endl;
+			for (int i = 1; i< Xx.n_rows; i++){
+				double smallest_dist = 10000000;
+
+				for (int m = 0; m< maxWidth; m++){
+					vec v = (Xx.row(i) - kmeans.row(m)).t();
+					//double dist = 1;
+					double dist =  as_scalar( trans(v) *A * v) ;
+					if (dist < smallest_dist){
+						clusters[i] = m;
+						smallest_dist = dist;
+					}
+				}
+				obj_func += smallest_dist;
+
+			}
+			//if no change from previous iteration, break.
+			if (it > 1 && obj_vals[obj_vals.size()-1] == obj_func)
+				break;
+			obj_vals.push_back(obj_func);
+			cout<<obj_func<< endl;
+
+			//calculate new means
+			kmeans = zeros(maxWidth, Xx.n_cols);
+			vector<int> counts(maxWidth, 0);
+			for (int i = 1; i< Xx.n_rows; i++){
+				kmeans.row(clusters[i])  = kmeans.row(clusters[i]) + Xx.row(i);
+				counts[clusters[i]]++;
+			}
+			for(int m = 0; m< maxWidth; m++){
+				kmeans.row(m) = kmeans.row(m)/ counts[m];
+			}
+
+		}
+	}
+	//k = W clusters initialized clusters[i] has length 0 after initialization
+	// reset the clusters based on connected components
+
+	//initialise
+	vector<vector< int> > ret_clusters;
+	for (int i=0; i< maxWidth; i++){
+		vector<int> v;
+		ret_clusters.push_back(v);
+	}
+
+	//push clusters and components
+	for(int i=0; i<nodes_layer.size(); i++){
+		int ns =0; //counts the number of singletons ive pushed back thusfar, used to relate the index in nodes_layer with the index in Xx
+		int comp = components[i];
+		if (comp > 0 ){
+			ret_clusters[clusters[components[i] - 1]].push_back( i );
+		} else
+		{
+			ns++;
+			ret_clusters[clusters[cnum + ns]].push_back(i);
+		}
+	}
+
+	cout << "clusters: \n";
+	for (int i=0; i< maxWidth; i++){
+		for (int j=0; j< ret_clusters[i].size(); j++)
+			cout << ret_clusters[i][j] << ",";
+		cout<< endl;
+	}
+
+	//done
+
+	cout << "Returning from clustering" << endl;
+	return ret_clusters;
 }
 
  mat MinBandBDD::learnDistanceMatrix(int layer, vector<Node*> &nodes_layer, arma::mat& X){
-/* This function first calls to determine similarity of pairs of nodes then solves an optimization
+ This function first calls to determine similarity of pairs of nodes then solves an optimization
  * to determine a distance metric in the form of a matrix A.
- *
- */
 
-	//getSimilarity tests a fraction of the pairs
-	vector<vector< int> > similarity = getSimilarity(layer,  nodes_layer, 0.01, 0, 1 );
-
-	// reformulate results for easy iteration
-	/*vector<int> similar_i = similarity[0];
-	vector<int> similar_j = similarity[1];
-	vector<int> dissimilar_i = similarity[2];
-	vector<int> dissimilar_j = similarity[3];*/
-
-
-
-	//learn distances
-	mat A = opt(X, similarity, 1000);
-	cout << "Returned DML" << A << endl;
+	 vector<vector<int> > ss;
+	mat A = learnDistanceMatrix(layer, nodes_layer, X, ss);
 
 	return A;
 
+}
 
+ mat MinBandBDD::learnDistanceMatrix(int layer, vector<Node*> &nodes_layer, arma::mat& X, vector<vector< int> >& Ss){
+ This function first calls to determine similarity of pairs of nodes then solves an optimization
+ * to determine a distance metric in the form of a matrix A.
+ *
+
+
+	//getSimilarity tests a fraction of the pairs
+	vector<vector< int> > similarity = getSimilarity(layer,  nodes_layer, 0.01	, 0, 0 );
+
+	// reformulate results for easy iteration
+	vector<int> similar_i = similarity[0];
+	vector<int> similar_j = similarity[1];
+	vector<int> dissimilar_i = similarity[2];
+	vector<int> dissimilar_j = similarity[3];
+
+	vector<vector<int> > S ;
+	vector<vector< int> > D;
+
+	S.push_back(similar_i);
+	S.push_back(similar_j);
+	D.push_back(dissimilar_i);
+	D.push_back(dissimilar_j);
+	Ss = S;
+
+	//learn distances
+	//mat A = opt(X, similarity, 1000);
+	cout << "calling opt" << endl;
+	mat A = opt(X, S, D, 100);
+	cout << "Returned DML"  << endl;
+
+	return A;
 
 }
 
 vector<vector<int> > MinBandBDD::getSimilarity(int layer, vector<Node*> &nodes_layer, double p, int delta, int epsilon){
-/* take some p fraction of pairs and test for similarity
+ take some p fraction of pairs and test for similarity
  * delta is allowable difference in cost
  * epsilon is allowable difference in state bound
- */
+
 
 	vector<vector< int> > similarity;
 	//initialize
@@ -3995,8 +4224,8 @@ vector<vector<int> > MinBandBDD::getSimilarity(int layer, vector<Node*> &nodes_l
 	}
 
 	int its = 0;
-	int num_pairs = (int)(p*(nodes_layer.size())*(nodes_layer.size()+1)/2) ;
-	cout << "Get similarity( "<< delta << epsilon << "):#" <<num_pairs<< endl;
+	int num_pairs = (int)(p*(nodes_layer.size())*(nodes_layer.size()+1)/2) +1;
+	cout << "Get similarity( "<< delta << epsilon << "):# " <<num_pairs;
 
 
 	while (its < num_pairs){
@@ -4036,10 +4265,10 @@ vector<vector<int> > MinBandBDD::getSimilarity(int layer, vector<Node*> &nodes_l
 				(nodes_layer[i]->state)[k] |= (nodes_layer[j]->state)[k];
 			}
 			boundInferredAfter = inferCost(nodes_layer[i]);
-			/*tmp_state|= nodes_layer[j]->state;
+			tmp_state|= nodes_layer[j]->state;
 			Node* tmp_node;
 			tmp_node->state = tmp_state;
-			boundInferredAfter = inferCost(tmp_node);*/
+			boundInferredAfter = inferCost(tmp_node);
 
 
 			//restore node i
@@ -4061,8 +4290,8 @@ vector<vector<int> > MinBandBDD::getSimilarity(int layer, vector<Node*> &nodes_l
 
 		its++;
 	}
-
-	cout<< "Return from similarity"<< endl;
+	cout << " - " << similarity[0].size() << " " << similarity[2].size();
+ 	cout<< " Return from similarity"<< endl;
 	return similarity;
 
 }
@@ -4101,13 +4330,63 @@ mat   MinBandBDD::getData(vector<Node*> nodes_layer){
 		}
 	}
 
-	/*//Test by printing out thestate in nodeslayer/X
+	//Test by printing out thestate in nodeslayer/X
 	nodes_layer[0]->printState();
 	for (int i = 0; i< num_cols; i++)
 		cout  << ((i%num_v == 0) ? "-" : "") << X(0,i);
-	cout<< endl;*/
+	cout<< endl;
 
 	return X;
 
 }
 
+mat   MinBandBDD::getData(vector<Node*> nodes_layer, vector<int> components, int numComponents, int numSing){
+	int num_nodes  = nodes_layer.size();
+	int num_v = inst->graph->n_vertices ;
+	int num_cols = num_v * num_v;
+	cout << "Transferring data... | "<< numComponents << "," << numSing << endl;
+	//X has a node per row
+	mat X = zeros<mat>(numSing+numComponents , num_cols);
+
+	//put component k in row k-1, so the singles start from row numCOmponent
+	// put the first singleton in row numComponent etc.
+	int rowNumSingle = numComponents ;
+	for (int i = 0; i< nodes_layer.size(); i++)	{
+		int row;
+		if (components[i]>0) row = components[i] - 1;
+		else {
+			row = rowNumSingle;
+			rowNumSingle++;
+		}
+		for (int j = 0; j< num_cols; j++){
+			if (nodes_layer[i]->state[j/num_v][j%num_v]){
+				X(row,j)  = X(row,j) +1;
+			}
+			else X(row,j) = X(row,j) +0;
+		}
+	}
+
+	//get number of nodes per comonent
+	vector<int> componentSizes(numComponents,0);
+	for (int i = 0; i < nodes_layer.size(); i++){
+		if (components[i]> 0 	)
+			componentSizes[components[i] - 1]++;
+	}
+	//rescale vectors restpresenting components to means
+	for (int i  = 0; i< numComponents; i++){
+		for (int j = 0; j< num_cols; j++){
+			X(i,j) = X(i,j)/ componentSizes[i];
+		}
+	}
+
+	//Test by printing out thestate in nodeslayer/X
+	nodes_layer[0]->printState();
+	for (int i = 0; i< num_cols; i++)
+		cout  << ((i%num_v == 0) ? "-" : "") << X(0,i);
+	cout<< endl;
+	cout << "Finished transferring data" << endl;
+ 	return X;
+
+}
+
+*/

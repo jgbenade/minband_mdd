@@ -12,9 +12,9 @@
 #include <deque>
 #include <set>
 #include <bitset>
-#include <armadillo> //for matrix data, ML project
+//#include <armadillo> //for matrix data, ML project
 
-using namespace arma;
+//using namespace arma;
 
 #include "minband_orderings.hpp"
 #include "minband_instance.hpp"
@@ -261,15 +261,24 @@ public:
 
   	int calcDiffElement(State& stateCluster, State& stateNode);
   	vector<vector<int> > clusterFootprint(int layer, vector<Node*> &nodes_layer);
+  	vector<vector<int> > clusterRandom(int layer, vector<Node*> &nodes_layer);
+
   	void mergeCluster(int layer, vector<Node*> &nodes_layer);
+
 
   	////////////////////////////////////////////////////////////////////////
   	/* Functions for machine learning project */
-  	vector<vector<int> >    kMeansClusters(int layer, vector<Node*> &nodes_layer);
+
+  	/*vector<vector<int> >    kMeansClusters(int layer, vector<Node*> &nodes_layer);
+  	vector<vector<int> >    constrainedkMeansClusters(int layer, vector<Node*> &nodes_layer);
   	mat learnDistanceMatrix(int layer, vector<Node*> &nodes_layer, mat& X);
+  	mat learnDistanceMatrix(int layer, vector<Node*> &nodes_layer, mat& X, vector<vector<int> >& Ss);
+
   	vector<vector<int> > getSimilarity(int layer, vector<Node*> &nodes_layer, double p, int delta, int epsilon);
   	int  inferCost(Node* node);
   	mat getData(vector<Node*> nodes_layer	);
+  	mat getData(vector<Node*> nodes_layer, vector<int> components, int numComponents, int numSing);*/
+
 
   	/* End functions for machine learning  project */
   	///////////////////////////////////////////////////////////////////////
