@@ -256,7 +256,7 @@ public:
   	int calculateCost_mu2(Node* _node);
   	//int calculateCost_mu2_fast(Node* _node);
   	int calculateCost_ILP(Node* _node);
-  	int calculateCost_ILP2(Node* _node);
+  	int calculateCost_ILP2(Node* _node, int target_from_IBS = 10000);
 
 
   	int calcDiffElement(State& stateCluster, State& stateNode);
@@ -297,6 +297,9 @@ public:
 	Node*					root_node;		  	// relaxation root node
 
     int 					nof_nodes_explored; //used to compare IBS to the typical branching scheme
+    int						nof_nodes_created; 	//counts when created, not branched on.
+    vector<int>				nodes_explored_before_bound; //number of nodes needed to prove a bound
+    vector<int>				nodes_created_before_bound; //number of nodes created before proving the bound
 
 private:
 

@@ -43,7 +43,8 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	  isUBUpdated(false),
 	  initialPosPool(0),
 	  variable_width(false),
-	  nof_nodes_explored(0)
+	  nof_nodes_explored(0),
+	  nof_nodes_created(0)
 {
   //assert( _ddWidth == INF_WIDTH || _ddWidth > 0 );
 
@@ -51,9 +52,8 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	best_ub = inst->graph->n_vertices;
 	//edges_to_check = new vector<vector<int> >;
 
-	//in_node->state_counter = new int[inst->graph->n_vertices];
-	//inst->graph->print();
-
+	nodes_created_before_bound.resize(inst->graph->n_vertices, -1);
+	nodes_explored_before_bound.resize(inst->graph->n_vertices, -1);
 
 	// ============================================================
 	// Generate initial relaxation to derive variable ordering
@@ -87,6 +87,11 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 
     best_lb = std::max(inst->caprara_bound, inst->calculate_HalfDensity_Bound_better());
     cout << "best_lb = " << best_lb << "\n";
+    //keep track of the initial bound, note lb=k implies a 0 at index k-1
+    for (int i=0; i< best_lb; i++){
+    	nodes_created_before_bound[i] = 0;
+    	nodes_explored_before_bound[i] = 0;
+    }
 
     // generate relaxation
 
@@ -109,6 +114,7 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	//upper_bound = ;
 	int lb1 = iterativeBoundStrengthening();
 	//int lb1 = generateRelaxation(-1);
+	//int lb1 = generateFakeRelaxation(-1);
 	best_lb = MAX(lb1, best_lb);
 
 	//cout << "returned " << lb1 << best_lb<<endl;
@@ -163,21 +169,28 @@ int MinBandBDD::iterativeBoundStrengthening(){
 
 	//ret_val 0 : merged, 1 exact, move ub, -1:move lb
 	while (phi < upper_bound and return_val < 0){
+		//prevent recounting of lower cost nodes
+		nof_nodes_created = 0;
 
 		return_val = BSRelaxation(phi, width);
 
-		cout << "\n IBS --- " <<  phi << ": " << return_val << " , ub= " << upper_bound <<endl;
+		cout << "\n IBS --- " <<  phi << ": " << return_val << " , ub= " << upper_bound << ", nodes expl= "<< nof_nodes_explored<<endl;
 
 		if (return_val == -1 && phi < upper_bound){
 			//no node on the last layer with cost <= phi and cost <upperbound
 			//note that we may have recently improved the upperbound and thus pruned nodes.
+
+			//note how many nodes needed to improve bound
+			nodes_created_before_bound[phi] = nof_nodes_created;
+			nodes_explored_before_bound[phi] = nof_nodes_explored;
+
 			phi++;
 		}
 		if (return_val == 0){
 			//merged node on the last layer with cost = phi., increase width?
 		}
 	}
-	cout << "\n FIBS --- " <<  phi << ": "  << " , ub= " << upper_bound;
+	//cout << "\n FIBS --- " <<  phi << ": "  << " , ub= " << upper_bound;
 	//if we stopped because the next value would have been upperboudn
 
 	lower_bound =phi;
@@ -350,10 +363,10 @@ int MinBandBDD::BSRelaxation(int _target_lb, int _width){
 			lower_bound = MAX(lower_bound, min_cost_pool);
 
 			//PRINT LAYER
-			cout << "Layer " << layer << " - vertex: " << current_vertex;
+			/*cout << "Layer " << layer << " - vertex: " << current_vertex;
 			cout << " - pool: " << node_pool.size();
 			cout << " - before merge: " << nodes_layer.size();
-			cout << " - total: " << node_pool.size() + nodes_layer.size();
+			cout << " - total: " << node_pool.size() + nodes_layer.size();*/
 
 			// ==================================
 			// 2. Node merging
@@ -370,12 +383,15 @@ int MinBandBDD::BSRelaxation(int _target_lb, int _width){
 					if (nodes_layer[i]->cost < _target_lb)
 						first = i;
 				int nof_nodes_at_target = nodes_layer.size() - first - 1;
-				cout << "merging : " << first << "  " << nof_nodes_at_target << endl;
+				//cout << "merging : " << first << "  " << nof_nodes_at_target << endl;
 
-				if (nof_nodes_at_target > _width)
-					mergeLayerIBS(layer, nodes_layer, first, _width);
+				if (nof_nodes_at_target > _width){
+					//temporarilyjust return instead of merging
+					return 0;
+					//mergeLayerIBS(layer, nodes_layer, first, _width);
+				}
 			}
-			cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;		if (!exactNodeInPool) cout << "x"; cout << endl;
+			//cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;		if (!exactNodeInPool) cout << "x"; cout << endl;
 			// ==================================
 			// 3. Branching
 			// ==================================
@@ -384,11 +400,11 @@ int MinBandBDD::BSRelaxation(int _target_lb, int _width){
 			Domain domain;
 
 			for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end(); ++it) {
+				//all higher cost nodes are pruned away, all lower cost nodes were counted on previous iterations.
 				if ((*it)->cost == _target_lb)
 					nof_nodes_explored++;
 
 				branch_node = (*it);
-				//cout<< "a"<<endl;
 
 				//this only filters the domains that we are about to branch on
 				filterBounds2(branch_node->state);
@@ -404,25 +420,24 @@ int MinBandBDD::BSRelaxation(int _target_lb, int _width){
 				//cout << branch_domain<< endl;
 				for (int v = 0; v< inst->graph->n_vertices; v++){
 					if (branch_domain[v]){
-						//domain.reset();
-						//domain.set(v);
 
 						node = new Node(branch_node->state,
 								branch_node->cost ,
 								branch_node->exact);
+						nof_nodes_created++;
 
 						//the one we are branching on
-						//cout << domain << "," << node->state[layer];
-						//node->state[layer] &= domain;
 						node->state[vertex_in_layer[layer]].reset();
 						node->state[vertex_in_layer[layer]].set(v);
-						//cout << "," << node->state[layer];
 
-						if (node->filterDomains5(vertex_in_layer[layer]) < 0|| filterBounds2(node->state) < 0 ){
+						if (node->filterDomains5(vertex_in_layer[layer]) < 0 || filterBounds2(node->state) < 0 ){
 							//if (  node->filterDomains5() < 0){
 							delete node;
 						}
 						else{
+							//only calculate cost if the thing we are branching on has a chance to keep the same cost.
+							//use l_v, f_v info from cost calculation of parent.
+
 							int cost=0;
 							//	node->cost = MAX(node->cost, calculateCost_caprara_fixed(node));
 							if (vertex_in_layer[vertex_in_layer.size()-1]== 0 or vertex_in_layer[vertex_in_layer.size()-1]== inst->graph->n_vertices-1)
@@ -440,7 +455,7 @@ int MinBandBDD::BSRelaxation(int _target_lb, int _width){
 							node->cost = MAX(node->cost,cost);*/
 
 							if (node->exact and node->cost < _target_lb + 1  && node->cost < upper_bound)
-								cost = calculateCost_ILP2(node);
+								cost = calculateCost_ILP2(node, _target_lb);
 							node->cost = MAX(node->cost, cost );
 
 							if (node->cost <  _target_lb + 1 && node->cost < upper_bound) {
@@ -775,10 +790,10 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 		lower_bound = MAX(lower_bound, min_cost_pool);
 
 		//PRINT LAYER
-		cout << "Layer " << layer << " - vertex: " << current_vertex;
+		/*cout << "Layer " << layer << " - vertex: " << current_vertex;
 		cout << " - pool: " << node_pool.size();
 		cout << " - before merge: " << nodes_layer.size();
-		cout << " - total: " << node_pool.size() + nodes_layer.size();
+		cout << " - total: " << node_pool.size() + nodes_layer.size();*/
 
 		// ==================================
 		// 2. Node merging
@@ -788,7 +803,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 			//mergeCluster(layer, nodes_layer);
 			mergeLayer(layer, nodes_layer);
 		}
-		cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;		if (!exactNodeInPool) cout << "x"; cout << endl;
+		//cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;		if (!exactNodeInPool) cout << "x"; cout << endl;
 		// ==================================
 		// 3. Branching
 		// ==================================
@@ -1211,10 +1226,10 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 
 
 		//PRINT LAYER
-		cout << "Layer " << layer << " - vertex: " << current_vertex;
+		/*cout << "Layer " << layer << " - vertex: " << current_vertex;
 		cout << " - pool: " << node_pool.size();
 		cout << " - before merge: " << nodes_layer.size();
-		cout << " - total: " << node_pool.size() + nodes_layer.size();
+		cout << " - total: " << node_pool.size() + nodes_layer.size();*/
 
 		// ==================================
 		// 2. Node merging
@@ -1230,7 +1245,7 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 			cout << " LU="<<lowest_unbranched<<  nodes_layer[maxWidth-1]->cost  << endl;
 			isExact = false;
 		}
-		cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;		if (!exactNodeInPool) cout << "x"; cout << " " << lowest_unbranched;  cout << endl;
+		//cout << " - bound: " << (*nodes_layer.begin())->cost <<","<<(nodes_layer[nodes_layer.size()-1])->cost ;		if (!exactNodeInPool) cout << "x"; cout << " " << lowest_unbranched;  cout << endl;
 		// ==================================
 		// 3. Branching
 		// ==================================
@@ -1243,7 +1258,7 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 
 		//only on the first few, the rest would have been merged and are now ignored
 		for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end() && it != nodes_layer.begin()+ maxWidth-1 ; ++it) {
-
+			nof_nodes_explored++;
 			branch_node = (*it);
 
 
@@ -1263,6 +1278,7 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 					node = new Node(branch_node->state,
 							branch_node->cost ,
 							branch_node->exact);
+					nof_nodes_created++;
 
 					//the one we are branching on
 					//cout << domain << "," << node->state[layer];
@@ -1706,7 +1722,7 @@ int MinBandBDD::generateFake2Relaxation(int initial_lp) {
 							//ilp cost
 
 							/*if (node->exact and node->cost < upper_bound)
-								cost = calculateCost_ILP2(node);
+								cost = calculateCost_ILP2(node, false);
 							node->cost = MAX(node->cost, cost );*/
 
 							if (node->cost < upper_bound) {
@@ -2072,7 +2088,7 @@ void MinBandBDD::mergeLayer(int layer, vector<Node*> &nodes_layer) {
 	// All nodes will be merged to the one with index "width-1", which will
 	// be denoted here by central node
 	Node* central_node = nodes_layer[maxWidth-1];
-	cout << "CN=" << nodes_layer[maxWidth-1]->cost<< ":"<< nodes_layer[maxWidth-1]->exact;
+	//cout << "CN=" << nodes_layer[maxWidth-1]->cost<< ":"<< nodes_layer[maxWidth-1]->exact;
 
 	// If central node is exact, we add it to the branch node pool
 	// (since it will be maintained in the BDD, we have to make a copy)
@@ -3226,10 +3242,15 @@ int MinBandBDD::calculateCost_ILP(Node* _node){
 
 }
 
-int MinBandBDD::calculateCost_ILP2(Node* _node){
+int MinBandBDD::calculateCost_ILP2(Node* _node, int target_from_IBS  ){
 
+	//these are only to be used for ibs, improve formatting later.
+	vector<vector<int> > lastpassbounds, backupdata;
 
-	int low_phi =  max(lower_bound, inst->caprara_bound) ;
+	//we need to ensure that phi does not end up smaller than the targetcost in ibs,
+	// since phi will be used to prune domains.
+	int low_phi = max(lower_bound, inst->caprara_bound) ;
+	low_phi = max(low_phi,_node->cost ) ;
 	low_phi =  max(low_phi, inst->half_density_bound_b) ;
 
 	int hi_phi = upper_bound ;
@@ -3447,6 +3468,9 @@ int MinBandBDD::calculateCost_ILP2(Node* _node){
 
 		//print data
 
+		if (target_from_IBS < inst->graph->n_vertices and phi >= target_from_IBS)
+			backupdata = data_vertices;
+
 		//vector<vector<int> > feasible_vertices;
 		std::priority_queue<vector<int>, vector<vector<int> >,  mytriplecomplv> feasible_vertices;
 
@@ -3503,6 +3527,9 @@ int MinBandBDD::calculateCost_ILP2(Node* _node){
 //		cout << low_phi << "," << phi << "," << hi_phi  << "-"<< feasible_flag << "..."<<endl;
 		//update binary search bounds
 		if (feasible_flag){
+			if (target_from_IBS < inst->graph->n_vertices and phi >= target_from_IBS)
+				lastpassbounds = backupdata;
+
 			hi_phi = phi;
 			phi = (int) low_phi + (hi_phi-low_phi)/2;
 
@@ -3526,7 +3553,8 @@ int MinBandBDD::calculateCost_ILP2(Node* _node){
 			phi = (int) low_phi + (hi_phi-low_phi)/2;
 
 			if (phi > upper_bound){
-				//cout << "returning, val=" << phi << endl;
+				// in this case we dont need to use lastpassdata, since the node will be pruned immediately
+
 				return phi;
 			}
 		}
@@ -3535,6 +3563,19 @@ int MinBandBDD::calculateCost_ILP2(Node* _node){
 
 	//cout << phi << "="; _node->printState();
 
+	//filter state based on the info we got here.
+	if (target_from_IBS < inst->graph->n_vertices){
+		for (int i=0; i < lastpassbounds.size(); i++	){
+			int vv = lastpassbounds[i][0];
+			int fv = lastpassbounds[i][1];
+			int lv = lastpassbounds[i][2];
+			for (int j = 0; j < _node->state.size(); j++){
+				if (_node->state[j][vv] && (j < fv || j> lv) ){
+					_node->state[j][vv] = false;
+				}
+			}
+		}
+	}
 
 	//cout << "returning, val=" << phi << endl;
 
@@ -3730,8 +3771,8 @@ double MinBandBDD::calculateCost_bounds_delta(Node* _node){
 */
 
 int MinBandBDD::filterBounds2(State& state){
-	//only filters the layer we are branching on
-	//cout << "fb";
+	//only filters the layer we are branching on based on the existing
+	// upper bound and the distnace between pairs of nodes
 
 	//vector<int> lb(inst->graph->n_vertices,-1);
 	//vector<int> ub(inst->graph->n_vertices,-1);

@@ -504,6 +504,10 @@ int main(int argc, char* argv[]) {
 	statfile << "\t" << ((double)(global_ub - global_lb) / (double)global_ub)*100.0;
 	statfile << "\t" << totalTime;
 	statfile << "\t" << minband_bdd.nof_nodes_explored;
+	statfile << "\t" << minband_bdd.nof_nodes_created;
+	for (int i=0; i< minband_bdd.inst->graph->n_vertices; i++){
+		statfile << "\t" << minband_bdd.nodes_explored_before_bound[i] << "\t" << minband_bdd.nodes_created_before_bound[i] ;
+	}
 	statfile << endl;
 	statfile.close();
 	return 0;
