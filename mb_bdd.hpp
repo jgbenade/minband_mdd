@@ -131,7 +131,6 @@ inline int Node::filterDomains2(){
 						return -1;
 					}
 
-
 				}
 				++domain2;
 			}

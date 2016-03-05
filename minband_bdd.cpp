@@ -112,8 +112,8 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 	cout << "restriction "<< ub2 << endl;
 	upper_bound = MIN(upper_bound,ub2);*/
 	//upper_bound = ;
-	int lb1 = iterativeBoundStrengthening();
-	//int lb1 = generateRelaxation(-1);
+	//int lb1 = iterativeBoundStrengthening();
+	int lb1 = generateRelaxation(-1);
 	//int lb1 = generateFakeRelaxation(-1);
 	best_lb = MAX(lb1, best_lb);
 
@@ -126,10 +126,10 @@ MinBandBDD::MinBandBDD(const	 int _rootWidth,
 
 	// check if BDD is already exact
 	//Not valid for fake relaxation or IBS
-	/*isExact = branch_nodes.empty();
+	isExact = branch_nodes.empty();
 	if (isExact) {
 		return;
-	}*/
+	}
 	// initialize branch node pool
 	//update bounds because the higher level search repeatedly copy form the pool
 	for (vector<BranchNode*>::iterator st = branch_nodes.begin(); st != branch_nodes.end(); ++st) {
@@ -174,17 +174,17 @@ int MinBandBDD::iterativeBoundStrengthening(){
 
 		return_val = BSRelaxation(phi, width);
 
-		cout << "\n IBS --- " <<  phi << ": " << return_val << " , ub= " << upper_bound << ", nodes expl= "<< nof_nodes_explored<<endl;
+		cout << "\n IBS --- " <<  phi << ": " << return_val << " , ub= " << upper_bound << ", nodes expl= "<< nof_nodes_explored << "  nodes created:" << nof_nodes_created<<endl;
 
 		if (return_val == -1 && phi < upper_bound){
 			//no node on the last layer with cost <= phi and cost <upperbound
 			//note that we may have recently improved the upperbound and thus pruned nodes.
 
-			//note how many nodes needed to improve bound
+			phi++;
+
+			//note how many nodes needed to improve bound (after inc since k is in index k-1)
 			nodes_created_before_bound[phi] = nof_nodes_created;
 			nodes_explored_before_bound[phi] = nof_nodes_explored;
-
-			phi++;
 		}
 		if (return_val == 0){
 			//merged node on the last layer with cost = phi., increase width?
@@ -401,7 +401,7 @@ int MinBandBDD::BSRelaxation(int _target_lb, int _width){
 
 			for (vector<Node*>::iterator it = nodes_layer.begin(); it != nodes_layer.end(); ++it) {
 				//all higher cost nodes are pruned away, all lower cost nodes were counted on previous iterations.
-				if ((*it)->cost == _target_lb)
+				if ((*it)->cost == _target_lb || layer ==0)
 					nof_nodes_explored++;
 
 				branch_node = (*it);
@@ -789,6 +789,18 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 
 		lower_bound = MAX(lower_bound, min_cost_pool);
 
+		//keep track of when the bounds were improved
+		if (nodes_created_before_bound[lower_bound-1] <  0	){ // then  this is a new bound
+			nodes_created_before_bound[lower_bound-1] = nof_nodes_created;
+			nodes_explored_before_bound[lower_bound-1] = nof_nodes_explored;
+			int ii = 2;
+			while (nodes_created_before_bound[lower_bound-ii] <  0	){
+				nodes_created_before_bound[lower_bound-ii] = nof_nodes_created;
+				nodes_explored_before_bound[lower_bound-ii] = nof_nodes_explored;
+				ii++;
+			}
+		}
+
 		//PRINT LAYER
 		/*cout << "Layer " << layer << " - vertex: " << current_vertex;
 		cout << " - pool: " << node_pool.size();
@@ -838,6 +850,7 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 					node = new Node(branch_node->state,
 							branch_node->cost ,
 							branch_node->exact);
+					nof_nodes_created++;
 
 					//the one we are branching on
 					//cout << domain << "," << node->state[layer];
@@ -992,6 +1005,16 @@ int MinBandBDD::generateRelaxation(int initial_lp) {
 	}
 	cout <<endl << "at lb: "<< count_low << " / " << node_pool.size() << "\t Exact: " << count_exact << " / " << node_pool.size()<< endl <<branch_nodes.size( ) << endl;
 	lower_bound = MAX(lower_bound, min_cost_pool);
+	if (nodes_created_before_bound[lower_bound-1] <  0	){ // then  this is a new bound
+		nodes_created_before_bound[lower_bound-1] = nof_nodes_created;
+		nodes_explored_before_bound[lower_bound-1] = nof_nodes_explored;
+		int ii = 2; //check if we skipped any values
+		while (nodes_created_before_bound[lower_bound-ii] <  0	){
+			nodes_created_before_bound[lower_bound-ii] = nof_nodes_created;
+			nodes_explored_before_bound[lower_bound-ii] = nof_nodes_explored;
+			ii++;
+		}
+	}
 
 	//if one of the equally lowest cost nodes are exact then
 	//no way we can improve (due to the nature of the cost function)
@@ -1115,7 +1138,7 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 
 	//imake sure we have the right number of things in vertex_in_layer
 	// we usually have one extra set in the state
-	while (vertex_in_layer.size() >= active_state.size()and vertex_in_layer.size() >0)
+	while (vertex_in_layer.size() >= active_state.size() and vertex_in_layer.size() >0)
 	{
 		vertex_in_layer.pop_back();
 	}
@@ -1252,6 +1275,18 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 
 		lower_bound = MAX(lower_bound, MIN(min_cost_pool, lowest_unbranched));
 
+		//track the number of nodes to have found this bound
+		//it may be a little off to count it here, but at most by a layer
+		if (nodes_created_before_bound[lower_bound-1] <  0	){ // then  this is a new bound
+			nodes_created_before_bound[lower_bound-1] = nof_nodes_created;
+			nodes_explored_before_bound[lower_bound-1] = nof_nodes_explored;
+			int ii = 2;
+			while (nodes_created_before_bound[lower_bound-ii] <  0	){
+				nodes_created_before_bound[lower_bound-ii] = nof_nodes_created;
+				nodes_explored_before_bound[lower_bound-ii] = nof_nodes_explored;
+				ii++;
+			}
+		}
 
 		Node* branch_node;
 		Domain domain;
@@ -1357,15 +1392,27 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 			// no new lower bound was generated
 			vertex_in_layer = orig_vertex_in_layer;
 
-			cout<<"lowest_cost " ; for (int i =0; i< lowest_cost.size(); i++) cout << lowest_cost[i] << ","; cout << endl;
+			//cout<<"lowest_cost " ; for (int i =0; i< lowest_cost.size(); i++) cout << lowest_cost[i] << ","; cout << endl;
 
 			if (lowest_cost.size() > 0 ){
-				cout << endl << lowest_unbranched << endl;
+				lower_bound = MIN(upper_bound, lowest_unbranched);
+
+				//update nodecount if this is a new lowerbound
+				if (nodes_created_before_bound[lower_bound-1] <  0	){ // then  this is a new bound
+					nodes_created_before_bound[lower_bound-1] = nof_nodes_created;
+					nodes_explored_before_bound[lower_bound-1] = nof_nodes_explored;
+					int ii = 2;
+					while (nodes_created_before_bound[lower_bound-ii] <  0	){
+						nodes_created_before_bound[lower_bound-ii] = nof_nodes_created;
+						nodes_explored_before_bound[lower_bound-ii] = nof_nodes_explored;
+						ii++;
+					}
+				}
+
 				return MIN(upper_bound, lowest_unbranched)	;
 			}
 			else{
 				// Exact, never ignored nodes, return upper bound
-				cout << "HI";
 				return upper_bound;
 			}
 		}
@@ -1427,6 +1474,17 @@ int MinBandBDD::generateFakeRelaxation(int initial_lp) {
 	cout << lower_bound <<  min_cost_pool << " " << lowest_unbranched <<endl;
 	lower_bound = MAX(lower_bound, MIN(min_cost_pool, lowest_unbranched));
 	lower_bound = MIN(lower_bound, upper_bound);
+	//update node count
+	if (nodes_created_before_bound[lower_bound-1] <  0	){ // then  this is a new bound
+		nodes_created_before_bound[lower_bound-1] = nof_nodes_created;
+		nodes_explored_before_bound[lower_bound-1] = nof_nodes_explored;
+		int ii = 2;
+		while (nodes_created_before_bound[lower_bound-ii] <  0	){
+			nodes_created_before_bound[lower_bound-ii] = nof_nodes_created;
+			nodes_explored_before_bound[lower_bound-ii] = nof_nodes_explored;
+			ii++;
+		}
+	}
 
 	// if last node is exact, BDD is exact: update lower bound
 	if (hasExact) {
