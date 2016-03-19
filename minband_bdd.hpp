@@ -202,6 +202,8 @@ public:
 	int iterativeBoundStrengthening();
 	//relax with different retur values
 	int BSRelaxation(int _target_lb, int _width);
+	int BSRelaxation_nodelimit(int _target_lb, int _nodelimit);
+
 	// Merge layer
 	void mergeLayerIBS(int layer, vector<Node*> &nodes_layer, int first, int width);
 
